@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<title>Playable Piano Javascript</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Core Modules -->
+<script src="js/core/EventManager.js"></script>
+<script src="js/core/AudioEngine.js"></script>
+<script src="js/core/AppState.js"></script>
+<script src="js/core/UIManager.js"></script>
+
+<!-- Feature Modules -->
+<script src="js/modules/PianoModule.js"></script>
+<script src="js/modules/PracticeModule.js"></script>
+<script src="js/modules/SongBuilderModule.js"></script>
+<script src="js/modules/YouTubeChordModule.js"></script>
+
+<!-- Main Application -->
+<script src="js/app.js"></script>
+
+</head>
+<body>  
+<!-- Background Panel --> 
+<div class="background-pattern"></div>
+<!-- Add this side menu near the top of your body -->
+<!-- Side Menu -->
+<div class="side-menu" id="side-menu">
+  <div class="menu-toggle" id="menu-toggle">
+    <div class="hamburger">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+  </div>
+  <div class="menu-content">
+    <h3 class="menu-title">Piano Studio</h3>
+    <ul class="menu-items">
+      <li class="menu-item" data-target="practice-panel">
+        <span class="menu-icon">🎯</span>
+        <span class="menu-text">Practice & Learning</span>
+      </li>
+      <li class="menu-item" data-target="progression-panel">
+        <span class="menu-icon">🎼</span>
+        <span class="menu-text">Song Builder</span>
+      </li>
+      <li class="menu-item" data-target="youtube-panel">
+        <span class="menu-icon">🎬</span>
+        <span class="menu-text">YouTube Chord Detection</span>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<!-- YouTube Chord Detection Panel -->
+<div class="youtube-panel" id="youtube-panel" style="display: none;">
+  <button class="youtube-panel-close" id="close-youtube-panel">&times;</button>
+  <h2 class="panel-title">YouTube Chord Detection</h2>
+  
+  <div class="youtube-input-container">
+    <div class="youtube-url-input">
+      <label for="youtube-url">YouTube URL:</label>
+      <input type="text" id="youtube-url" placeholder="https://www.youtube.com/watch?v=...">
+      <button id="detect-chords" class="control-button">Detect Chords</button>
+    </div>
+    
+    <div class="youtube-preview" id="youtube-preview" style="display: none;">
+      <!-- YouTube thumbnail and info will be displayed here -->
+    </div>
+  </div>
+  
+  <div class="detection-progress" id="detection-progress" style="display: none;">
+    <div class="loader"></div>
+    <span class="progress-status">Analyzing chord progression...</span>
+    <div class="progress-bar">
+      <div class="progress-bar-fill" id="progress-bar-fill"></div>
+    </div>
+  </div>
+  
+  <div class="youtube-results" id="youtube-results" style="display: none;">
+    <div class="results-header">
+      <h3>Detected Chords</h3>
+      <div class="results-controls">
+        <button id="play-detected-chords" class="control-button">
+          <i class="icon-play"></i> Play Chord Progression
+        </button>
+        <button id="save-detected-chords" class="control-button">Save to Song Builder</button>
+      </div>
+    </div>
+    
+    <div class="chord-timeline" id="chord-timeline">
+      <!-- Detected chords will be displayed here -->
+    </div>
+    
+    <div class="status-message" id="detection-status">
+      Enter a YouTube URL to detect chords
+    </div>
+  </div>
+</div>
+
+
+<!-- Practice Panel -->
+<div class="practice-panel" id="practice-panel" style="display: none;">
+  <button class="practice-panel-close" id="close-practice-panel">&times;</button>
+  <h2 class="panel-title">Practice Mode</h2>
+
+  <!-- Practice Stats Panel -->
+  <div id="practice-stats-panel" class="practice-stats-panel" style="display: none;">
+    <div class="stats-header">PRACTICE STATS</div>
+    <div class="stats-row">
+      <div class="stat-item">
+        <div class="stat-label">CORRECT</div>
+        <div class="stat-value" id="correct-count">0</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">STREAK</div>
+        <div class="stat-value" id="current-streak">0</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">BEST</div>
+        <div class="stat-value" id="best-streak">0</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">ACCURACY</div>
+        <div class="stat-value" id="accuracy">0%</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="practice-initial-selectors">
+    <button id="scale-mode" class="control-button large-button">Scales Practice</button>
+    <button id="chord-mode" class="control-button large-button">Chords Practice</button>
+  </div>
+  
+  <div class="practice-options" style="display: none;">
+    <div class="mode-selectors">
+    </div>
+  
+    <div class="practice-configuration">
+      <div class="difficulty-selector">
+        <label for="difficulty-level">Difficulty:</label>
+        <select id="difficulty-level">
+          <option value="easy">Easy</option>
+          <option value="medium">Medium</option>
+          <option value="hard">Hard</option>
+          <option value="expert">Expert</option>
+        </select>
+      </div>
+      
+      <div class="practice-mode-selector">
+        <label for="practice-feedback-mode">Feedback Mode:</label>
+        <select id="practice-feedback-mode">
+          <option value="active">Active (MIDI Feedback)</option>
+          <option value="unplugged">Unplugged (Display Only)</option>
+        </select>
+      </div>
+      
+      <div id="key-selection-container" style="display: none;">
+        <label for="key-selection-mode">Key Selection:</label>
+        <select id="key-selection-mode">
+          <option value="random">Random Keys</option>
+          <option value="specific">Choose a Key</option>
+        </select>
+        <select id="specific-key" style="display: none;">
+          <option value="">Select a Key</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+<!-- Separate container for root note and duration controls -->
+<div class="root-controls">
+  <div id="root-note-container">
+  <!-- Root note select will be added here by populateSelects() -->
+  </div>
+  
+  <select id="scale-select" style="display: none;">
+    <option value="">Select a Scale</option>
+  </select>
+  <select id="chord-select" style="display: none;">
+    <option value="">Select a Chord</option>
+  </select>
+
+<!-- Scale duration control -->
+<div id="scale-duration-control" style="display: none;" class="compact-slider-control">
+<label for="scale-duration">Hold: <span id="scale-duration-value">3.0</span>s</label>
+<input type="range" id="scale-duration" min="1" max="10" value="3" step="0.5">
+</div>
+
+<!-- Chord duration control -->
+<div id="chord-duration-control" style="display: none;" class="compact-slider-control">
+<label for="chord-duration">Hold: <span id="duration-value">2.0</span>s</label>
+<input type="range" id="chord-duration" min="0.5" max="5" value="2" step="0.1">
+</div>
+</div>
+
+<div class="action-buttons">
+<button id="play-selected" class="control-button">
+  <i class="icon-play"></i> Play Selected</button>
+<button id="start-practice" class="control-button">Start Practice Mode</button>
+<button id="stop-practice" class="control-button" style="display: none; background-color: var(--error-color);">Stop Practice</button>
+<button id="save-to-progression" class="control-button">Song Builder</button>
+</div>
+
+<div id="challenge-display"></div>
+<div id="feedback-display"></div>
+</div>
+
+<!-- Chord Progression Panel (initially hidden) -->
+<div class="progression-panel" id="progression-panel">
+    <div class="panel-header">
+        <div class="panel-title">Song Builder</div>
+        <button id="close-progression-panel" class="close-button">&times;</button>
+    </div>
+    
+    <div class="song-selector">
+        <select id="song-select">
+            <option value="new">Create New Song...</option>
+        </select>
+        <button id="create-song" class="control-button">Create</button>
+        <button id="delete-song" class="control-button">Delete</button>
+        <button id="play-song" class="control-button">Play Song</button>
+    </div>
+    
+    <div id="song-sections" class="song-sections">
+        <div class="empty-song">Select or create a song</div>
+    </div>
+
+    <div class="section-editor">
+        <div class="section-header">
+            <h3 class="section-title">Add Section</h3>
+            <div class="section-type-selector">
+                <select id="section-type">
+                    <option value="intro">Intro</option>
+                    <option value="verse">Verse</option>
+                    <option value="pre-chorus">Pre-Chorus</option>
+                    <option value="chorus">Chorus</option>
+                    <option value="bridge">Bridge</option>
+                    <option value="outro">Outro</option>
+                    <option value="custom">Custom...</option>
+                </select>
+                <input type="text" id="custom-section-name" placeholder="Custom section name" style="display: none;">
+                <button id="add-section" class="control-button">Add</button>
+            </div>
+        </div>
+        
+        <div id="current-section-editor" class="section-content" style="display: none;">
+            <div class="section-editor-header">
+                <h3 id="current-section-name">Section Name</h3>
+                <div class="section-controls">
+                    <button id="add-to-section" class="control-button">Add Current Chord</button>
+                    <button id="play-section" class="control-button">Play Section</button>
+                    <button id="delete-section" class="control-button">Delete Section</button>
+                </div>
+            </div>
+            
+            <div id="section-progression-display" class="progression-display">
+                <div class="empty-progression">Add chords to your section</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Piano Wrapper -->
+<div class="wrapper">
+  <div class="control-panel">
+    <div class="control-knob" id="knob-1"></div>
+    <div class="control-knob" id="knob-2"></div>
+    
+    <!-- Instrument display and selector -->
+    <div class="instrument-selector">
+      <div class="led-display" id="instrument-display">GRAND PIANO</div>
+      <div class="instrument-menu">
+        <button class="instrument-option" data-instrument="grand-piano">Grand Piano</button>
+        <button class="instrument-option" data-instrument="synth">Synth</button>
+        <button class="instrument-option" data-instrument="guitar">Guitar</button>
+      </div>
+    </div>
+    
+    <!-- MIDI Status as LED indicator with label -->
+    <div class="midi-status-container">
+      <div class="midi-led-label">MIDI</div>
+      <div class="led-indicator" id="midi-indicator"></div>
+    </div>
+    
+    <div class="volume-control">
+      <div class="volume-label">VOLUME</div>
+      <div class="volume-knob-container">
+        <div class="min-label">MIN</div>
+        <div class="control-knob" id="volume-knob">
+          <div class="knob-marker"></div>
+          <input type="range" min="0" max="1" value="0.5" step="0.01" class="knob-input">
+        </div>
+        <div class="max-label">MAX</div>
+        <div class="volume-level-indicator">
+          <div class="volume-level-dots"></div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="keys-checkbox">
+      <span>SHOW KEYS</span>
+      <input type="checkbox" checked>
+    </div>
+  </div>
+
+<ul class="piano-keys">
+<li class="key white" data-note="A3"><span>A3</span></li>
+<li class="key black" data-note="A#3"><span>A#3</span></li>
+<li class="key white" data-note="B3"><span>B3</span></li>
+<li class="key white" data-note="C4"><span>C4</span></li>
+<li class="key black" data-note="C#4"><span>C#4</span></li>
+<li class="key white" data-note="D4"><span>D4</span></li>
+<li class="key black" data-note="D#4"><span>D#4</span></li>
+<li class="key white" data-note="E4"><span>E4</span></li>
+<li class="key white" data-note="F4"><span>F4</span></li>
+<li class="key black" data-note="F#4"><span>F#4</span></li>
+<li class="key white" data-note="G4"><span>G4</span></li>
+<li class="key black" data-note="G#4"><span>G#4</span></li>
+<li class="key white" data-note="A4"><span>A4</span></li>
+<li class="key black" data-note="A#4"><span>A#4</span></li>
+<li class="key white" data-note="B4"><span>B4</span></li>
+<li class="key white" data-note="C5"><span>C5</span></li>
+<li class="key black" data-note="C#5"><span>C#5</span></li>
+<li class="key white" data-note="D5"><span>D5</span></li>
+<li class="key black" data-note="D#5"><span>D#5</span></li>
+<li class="key white" data-note="E5"><span>E5</span></li>
+<li class="key white" data-note="F5"><span>F5</span></li>
+<li class="key black" data-note="F#5"><span>F#5</span></li>
+<li class="key white" data-note="G5"><span>G5</span></li>
+<li class="key black" data-note="G#5"><span>G#5</span></li>
+<li class="key white" data-note="A5"><span>A5</span></li>
+<li class="key black" data-note="A#5"><span>A#5</span></li>
+<li class="key white" data-note="B5"><span>B5</span></li>
+</ul>
+<div class="model-details">
+  <div>SynthMaster Pro</div>
+  <div class="serial-number">SN: KBD-2023-X7142</div>
+</div>
+
+<div class="screw screw-top-left"></div>
+<div class="screw screw-top-right"></div>
+<div class="screw screw-bottom-left"></div>
+<div class="screw screw-bottom-right"></div>
+
+<div class="ventilation-grill">
+  <div class="vent-slot"></div>
+  <div class="vent-slot"></div>
+  <div class="vent-slot"></div>
+  <div class="vent-slot"></div>
+  <div class="vent-slot"></div>
+  <div class="vent-slot"></div>
+  <div class="vent-slot"></div>
+  <div class="vent-slot"></div>
+  <div class="vent-slot"></div>
+  <div class="vent-slot"></div>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/soundfont-player@0.12.0/dist/soundfont-player.min.js"></script>
+
+<!-- Sound Explorer -->
+<div id="sound-explorer" class="sound-explorer">
+    <div class="explorer-header">
+      <h3>Sound Explorer</h3>
+      <button id="toggle-explorer" class="control-button">Show Sound Explorer</button>
+    </div>
+    <div class="explorer-content" style="display: none;">
+      <div class="explorer-section">
+        <label for="instrument-category">Category:</label>
+        <select id="instrument-category">
+          <option value="all">All Instruments</option>
+          <option value="piano">Piano</option>
+          <option value="chromatic">Chromatic Percussion</option>
+          <option value="organ">Organ</option>
+          <option value="guitar">Guitar</option>
+          <option value="bass">Bass</option>
+          <option value="strings">Strings</option>
+          <option value="ensemble">Ensemble</option>
+          <option value="brass">Brass</option>
+          <option value="reed">Reed</option>
+          <option value="pipe">Pipe</option>
+          <option value="synth_lead">Synth Lead</option>
+          <option value="synth_pad">Synth Pad</option>
+          <option value="synth_effects">Synth Effects</option>
+          <option value="ethnic">Ethnic</option>
+          <option value="percussive">Percussive</option>
+          <option value="sound_effects">Sound Effects</option>
+        </select>
+      </div>
+      <div class="explorer-section">
+        <label for="instrument-select">Instrument:</label>
+        <select id="instrument-select">
+          <option value="">Select an instrument</option>
+        </select>
+      </div>
+      <div class="explorer-section">
+        <button id="test-instrument" class="control-button">Test Instrument</button>
+        <button id="set-instrument" class="control-button">Set as Current</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

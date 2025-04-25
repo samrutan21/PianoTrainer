@@ -1,0 +1,10 @@
+04/23/2025:
+
+Things that arent working: 
+
+Practice Mode: The list of chords and scales is not showing up in the dropdown for each mode. For example theres no option to choose sus4, maj7, etc. Need to search the codebase to see if those are still present or have been removed.
+
+Soundfond Library not loading. 
+
+Fix these things first, then move on to developing the YouTube integration and interface. 
+
