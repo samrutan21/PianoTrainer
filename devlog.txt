@@ -8,3 +8,4 @@ Soundfond Library not loading.
 
 Fix these things first, then move on to developing the YouTube integration and interface. 
 
+Made lots of improvements to the interface. Fix the practice mode panel so that it only says "Chord Mode" and "Scale Mode" upon opening. 

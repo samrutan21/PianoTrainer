@@ -45,8 +45,29 @@ const YouTubeChordModule = {
       const closeButton = document.getElementById('close-youtube-panel');
       if (closeButton) {
         EventManager.on(closeButton, 'click', () => {
+          // Stop any active playback
           this.stopPlayback();
-          UIManager.hidePanel('youtube-panel');
+          
+          // Hide the YouTube panel
+          const youtubePanel = document.getElementById('youtube-panel');
+          if (youtubePanel) {
+            youtubePanel.style.display = 'none';
+            console.log('Hiding YouTube Chord Detection panel');
+            
+            // Remove active class from the corresponding menu item
+            const menuItems = document.querySelectorAll('.menu-item');
+            menuItems.forEach(item => {
+              if (item.getAttribute('data-target') === 'youtube-panel') {
+                item.classList.remove('active');
+                console.log('Removed active class from YouTube Chord Detection menu item');
+              }
+            });
+            
+            // Update the visible panels state
+            const currentPanels = AppState.get('ui.visiblePanels') || [];
+            const updatedPanels = currentPanels.filter(id => id !== 'youtube-panel');
+            AppState.set('ui.visiblePanels', updatedPanels);
+          }
         });
       }
       

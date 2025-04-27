@@ -33,6 +33,75 @@
     init() {
       console.log('PracticeModule: Initializing');
       
+      // Check if patterns are loaded in AppState
+      if (!AppState.patterns || !AppState.patterns.scales || !AppState.patterns.chords) {
+        console.warn('PracticeModule: Patterns not found in AppState during init, creating directly');
+        
+        // Define patterns directly if they're not in AppState
+        const scalePatterns = {
+          'major': [0, 2, 4, 5, 7, 9, 11],
+          'minor': [0, 2, 3, 5, 7, 8, 10],
+          'dorian': [0, 2, 3, 5, 7, 9, 10],
+          'phrygian': [0, 1, 3, 5, 7, 8, 10],
+          'lydian': [0, 2, 4, 6, 7, 9, 11],
+          'mixolydian': [0, 2, 4, 5, 7, 9, 10],
+          'locrian': [0, 1, 3, 5, 6, 8, 10],
+          'harmonic_minor': [0, 2, 3, 5, 7, 8, 11],
+          'melodic_minor': [0, 2, 3, 5, 7, 9, 11],
+          'pentatonic_major': [0, 2, 4, 7, 9],
+          'pentatonic_minor': [0, 3, 5, 7, 10],
+          'blues': [0, 3, 5, 6, 7, 10]
+        };
+        
+        const chordPatterns = {
+          'maj': [0, 4, 7],
+          'min': [0, 3, 7],
+          '7': [0, 4, 7, 10],
+          'maj7': [0, 4, 7, 11],
+          'min7': [0, 3, 7, 10],
+          'dim': [0, 3, 6],
+          'dim7': [0, 3, 6, 9],
+          'half_dim7': [0, 3, 6, 10],
+          'aug': [0, 4, 8],
+          'sus2': [0, 2, 7],
+          'sus4': [0, 5, 7],
+          'maj9': [0, 4, 7, 11, 14],
+          'min9': [0, 3, 7, 10, 14]
+        };
+        
+        // Create patterns in AppState if it doesn't exist
+        if (!AppState.patterns) {
+          AppState.patterns = {};
+        }
+        
+        AppState.patterns.scales = scalePatterns;
+        AppState.patterns.chords = chordPatterns;
+        
+        console.log('PracticeModule: Created patterns in AppState');
+      } else {
+        console.log('PracticeModule: Patterns found in AppState');
+      }
+      
+      // Force log the patterns to ensure they're available
+      console.log('Scale patterns:', AppState.patterns.scales);
+      console.log('Chord patterns:', AppState.patterns.chords);
+      
+      // Log the available patterns
+      const scalePatterns = AppState.patterns.scales;
+      const chordPatterns = AppState.patterns.chords;
+      
+      if (!scalePatterns || Object.keys(scalePatterns).length === 0) {
+        console.error('PracticeModule init: Scale patterns not found in AppState');
+      } else {
+        console.log(`PracticeModule: Loaded ${Object.keys(scalePatterns).length} scale patterns`);
+      }
+      
+      if (!chordPatterns || Object.keys(chordPatterns).length === 0) {
+        console.error('PracticeModule init: Chord patterns not found in AppState');
+      } else {
+        console.log(`PracticeModule: Loaded ${Object.keys(chordPatterns).length} chord patterns`);
+      }
+      
       // Set up event listeners
       this.setupEventListeners();
       
@@ -101,35 +170,36 @@
       // Mode selection buttons
       const scaleMode = document.getElementById('scale-mode');
       const chordMode = document.getElementById('chord-mode');
+      const backButton = document.getElementById('back-to-practice-home');
 
       if (scaleMode) {
         EventManager.on(scaleMode, 'click', () => {
-          // Show options panel
-          const practiceOptions = document.querySelector('.practice-options');
-          if (practiceOptions) {
-            practiceOptions.style.display = 'block';
-            document.querySelector('.practice-initial-selectors').style.display = 'none';
-          }
-          
-          AppState.set('practice.optionsVisible', true);
+          console.log('Scale mode button clicked');
           this.setMode('scale');
         });
       }
 
       if (chordMode) {
         EventManager.on(chordMode, 'click', () => {
-          // Show options panel
-          const practiceOptions = document.querySelector('.practice-options');
-          if (practiceOptions) {
-            practiceOptions.style.display = 'block';
-            document.querySelector('.practice-initial-selectors').style.display = 'none';
+          console.log('Chord mode button clicked');
+          this.setMode('chord');
+        });
+      }
+      
+      // Back button to return to initial selectors
+      if (backButton) {
+        EventManager.on(backButton, 'click', () => {
+          console.log('Back button clicked');
+          
+          // Make sure practice is not active
+          if (AppState.get('practice.isActive')) {
+            this.stopPractice();
           }
           
-          // Show key selection for chord mode
-          document.getElementById('key-selection-container').style.display = 'flex';
+          // Reset to 'none' mode, which will update all UI elements
+          this.setMode('none');
           
-          AppState.set('practice.optionsVisible', true);
-          this.setMode('chord');
+          console.log('Returned to practice home screen');
         });
       }
 
@@ -247,8 +317,9 @@
         });
       }
       
-      // Close practice panel button
+      // Setup close practice panel button
       const closePracticePanelButton = document.getElementById('close-practice-panel');
+      
       if (closePracticePanelButton) {
         EventManager.on(closePracticePanelButton, 'click', () => {
           if (AppState.get('practice.isActive')) {
@@ -262,8 +333,34 @@
           if (practiceOptions) practiceOptions.style.display = 'none';
           if (initialSelectors) initialSelectors.style.display = 'flex';
           
+          // Hide the back button
+          const backButton = document.getElementById('back-to-practice-home');
+          if (backButton) backButton.style.display = 'none';
+          
           AppState.set('practice.optionsVisible', false);
-          UIManager.hidePanel('practice-panel');
+          
+          // Don't use UIManager.hidePanel as it might affect other panels
+          // Just hide this specific panel
+          const practicePanel = document.getElementById('practice-panel');
+          if (practicePanel) {
+            practicePanel.style.display = 'none';
+            practicePanel.classList.remove('visible');
+            console.log('Hiding Practice panel without affecting other panels');
+            
+            // Remove active state from this panel's menu item
+            const menuItems = document.querySelectorAll('.menu-item');
+            menuItems.forEach(item => {
+              if (item.getAttribute('data-target') === 'practice-panel') {
+                item.classList.remove('active');
+                console.log('Removed active class from Practice panel menu item');
+              }
+            });
+            
+            // Update the visible panels state
+            const currentPanels = AppState.get('ui.visiblePanels') || [];
+            const updatedPanels = currentPanels.filter(id => id !== 'practice-panel');
+            AppState.set('ui.visiblePanels', updatedPanels);
+          }
         });
       }
       
@@ -276,17 +373,82 @@
     },
     
     /**
-     * Set the practice mode
-     * @param {string} mode - Practice mode ('scale' or 'chord')
+     * Set practice mode
+     * @param {string} mode - Practice mode ('scale', 'chord', 'none')
      */
     setMode(mode) {
+      console.log(`PracticeModule: Setting practice mode to ${mode}`);
+      
       // Stop any currently playing notes
       PianoModule.stopAllNotes();
       
       // Set practice mode in state
       AppState.set('practice.mode', mode);
       
-      // Update UI
+      // Make sure we have the latest patterns
+      this.populateSelects();
+      
+      // Update UI visibility
+      const practiceOptions = document.querySelector('.practice-options');
+      const initialSelectors = document.querySelector('.practice-initial-selectors');
+      const backButton = document.getElementById('back-to-practice-home');
+      const playSelectedButton = document.getElementById('play-selected');
+      const startPracticeButton = document.getElementById('start-practice');
+      const rootNoteContainer = document.getElementById('root-note-container');
+      const rootNoteSelect = document.getElementById('root-note-select');
+      const scaleSelect = document.getElementById('scale-select');
+      const chordSelect = document.getElementById('chord-select');
+      
+      // When setting a specific mode, hide initial selectors and show options
+      if (mode === 'scale' || mode === 'chord') {
+        if (practiceOptions) practiceOptions.style.display = 'block';
+        if (initialSelectors) initialSelectors.style.display = 'none';
+        if (backButton) backButton.style.display = 'block';
+        if (playSelectedButton) playSelectedButton.style.display = 'block';
+        if (startPracticeButton) startPracticeButton.style.display = 'block';
+        
+        // Show the root note selector for both modes
+        if (rootNoteContainer) rootNoteContainer.style.display = 'block';
+        if (rootNoteSelect) rootNoteSelect.style.display = 'block';
+        
+        // Show the appropriate selector based on mode
+        if (mode === 'scale') {
+          if (scaleSelect) scaleSelect.style.display = 'block';
+          if (chordSelect) chordSelect.style.display = 'none';
+        } else { // mode === 'chord'
+          if (scaleSelect) scaleSelect.style.display = 'none';
+          if (chordSelect) chordSelect.style.display = 'block';
+        }
+        
+        // Show/hide the key selection container based on mode
+        const keySelectionContainer = document.getElementById('key-selection-container');
+        if (keySelectionContainer) {
+          keySelectionContainer.style.display = mode === 'chord' ? 'flex' : 'none';
+        }
+        
+        // Make sure we don't have any stale feedback or challenge display
+        UIManager.showFeedback('');
+        
+        // Update practice options visibility state
+        AppState.set('practice.optionsVisible', true);
+      } else {
+        // For 'none' mode, show initial selectors and hide options
+        if (practiceOptions) practiceOptions.style.display = 'none';
+        if (initialSelectors) initialSelectors.style.display = 'flex';
+        if (backButton) backButton.style.display = 'none';
+        if (playSelectedButton) playSelectedButton.style.display = 'none';
+        if (startPracticeButton) startPracticeButton.style.display = 'none';
+        
+        // Hide selectors in 'none' mode
+        if (rootNoteContainer) rootNoteContainer.style.display = 'none';
+        if (scaleSelect) scaleSelect.style.display = 'none';
+        if (chordSelect) chordSelect.style.display = 'none';
+        
+        // Update practice options visibility state
+        AppState.set('practice.optionsVisible', false);
+      }
+      
+      // Update UI and component visibility
       UIManager.setupPracticeModeUI(mode);
       
       // Populate key selector if needed
@@ -991,41 +1153,47 @@
      * Populate select elements for scales and chords
      */
     populateSelects() {
-      // Set up the root note selector
-      const rootNoteContainer = document.getElementById('root-note-container');
-      if (!rootNoteContainer) return;
+      console.log('PracticeModule: Populating select elements');
       
-      // Check if the select already exists
-      let rootNoteSelect = document.getElementById('root-note-select');
+      // Directly access the patterns from AppState for debugging
+      const scalePatterns = AppState.patterns?.scales;
+      const chordPatterns = AppState.patterns?.chords;
       
-      if (!rootNoteSelect) {
-        rootNoteSelect = document.createElement('select');
-        rootNoteSelect.id = 'root-note-select';
-        
-        const uniqueNoteNames = AudioEngine.getUniqueNoteNames();
-        uniqueNoteNames.sort().forEach(noteName => {
-          const option = document.createElement('option');
-          option.value = noteName;
-          option.textContent = noteName;
-          rootNoteSelect.appendChild(option);
-        });
-        
-        rootNoteSelect.value = 'C';
-        rootNoteContainer.appendChild(rootNoteSelect);
-      }
+      console.log('Direct scale patterns check:', scalePatterns);
+      console.log('Direct chord patterns check:', chordPatterns);
       
       // Set up the scale selector
       const scaleSelect = document.getElementById('scale-select');
       if (scaleSelect) {
         scaleSelect.innerHTML = '<option value="">Select a Scale</option>';
         
-        const scalePatterns = AppState.get('patterns.scales');
-        for (let scale in scalePatterns) {
-          let option = document.createElement('option');
-          option.value = scale;
-          option.textContent = scale.charAt(0).toUpperCase() + scale.slice(1).replace(/_/g, ' ');
-          scaleSelect.appendChild(option);
+        if (!scalePatterns || Object.keys(scalePatterns).length === 0) {
+          console.error('No scale patterns found in AppState');
+          
+          // Fallback to a basic set of scales
+          const fallbackScales = {
+            'major': 'Major',
+            'minor': 'Minor',
+            'pentatonic_major': 'Pentatonic Major',
+            'pentatonic_minor': 'Pentatonic Minor'
+          };
+          
+          for (let [scale, displayName] of Object.entries(fallbackScales)) {
+            let option = document.createElement('option');
+            option.value = scale;
+            option.textContent = displayName;
+            scaleSelect.appendChild(option);
+          }
+        } else {
+          for (let scale in scalePatterns) {
+            let option = document.createElement('option');
+            option.value = scale;
+            option.textContent = scale.charAt(0).toUpperCase() + scale.slice(1).replace(/_/g, ' ');
+            scaleSelect.appendChild(option);
+          }
         }
+      } else {
+        console.error('Scale select element not found');
       }
       
       // Set up the chord selector
@@ -1033,13 +1201,33 @@
       if (chordSelect) {
         chordSelect.innerHTML = '<option value="">Select a Chord</option>';
         
-        const chordPatterns = AppState.get('patterns.chords');
-        for (let chord in chordPatterns) {
-          let option = document.createElement('option');
-          option.value = chord;
-          option.textContent = chord;
-          chordSelect.appendChild(option);
+        if (!chordPatterns || Object.keys(chordPatterns).length === 0) {
+          console.error('No chord patterns found in AppState');
+          
+          // Fallback to a basic set of chords
+          const fallbackChords = {
+            'maj': 'Major',
+            'min': 'Minor',
+            '7': 'Dominant 7th',
+            'maj7': 'Major 7th'
+          };
+          
+          for (let [chord, displayName] of Object.entries(fallbackChords)) {
+            let option = document.createElement('option');
+            option.value = chord;
+            option.textContent = displayName;
+            chordSelect.appendChild(option);
+          }
+        } else {
+          for (let chord in chordPatterns) {
+            let option = document.createElement('option');
+            option.value = chord;
+            option.textContent = chord;
+            chordSelect.appendChild(option);
+          }
         }
+      } else {
+        console.error('Chord select element not found');
       }
       
       // Set up duration sliders
@@ -1074,22 +1262,15 @@
       // Always ensure selects are populated
       this.populateSelects();
       
-      if (mode) {
-        // If mode is specified, set it up
+      // If mode is specified, set it up
+      if (mode && mode !== 'none') {
         this.setMode(mode);
       } else {
-        // If no mode specified, just show the initial selectors
-        const initialSelectors = document.querySelector('.practice-initial-selectors');
-        const optionsPanel = document.querySelector('.practice-options');
-        
-        if (initialSelectors) initialSelectors.style.display = 'flex';
-        if (optionsPanel) optionsPanel.style.display = 'none';
-        
-        // Reset practice mode
+        // For 'none' mode, just ensure the state is reset
         AppState.set('practice.mode', 'none');
+        
+        // Make sure UI Manager also sets up practice UI
+        UIManager.setupPracticeModeUI('none');
       }
-      
-      // Make sure UI Manager also sets up practice UI
-      UIManager.setupPracticeModeUI(mode || 'none');
     }
   }

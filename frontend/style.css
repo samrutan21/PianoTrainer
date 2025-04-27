@@ -636,9 +636,9 @@ body {
   font-size: 14px;
   transition: all var(--transition-fast);
   cursor: pointer;
-  flex: 1;
-  min-width: 120px;
-  max-width: 200px;
+  flex: initial;
+  min-width: initial;
+  max-width: initial;
   color: var(--text-dark);
 }
 
@@ -737,85 +737,45 @@ body {
 
 .root-controls {
   display: flex;
-  gap: 15px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
+  margin: 20px 0;
+  width: 100%;
 }
 
 #root-note-container {
-  position: relative;
-}
-
-#root-note-container::after {
-  content: '🎵';
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none;
-  font-size: 14px;
-}
-
-#root-note-container select {
-  padding: 10px 20px;
-  border-radius: var(--border-radius-md);
-  border: 1px solid var(--panel-border);
-  background: white;
-  font-size: 14px;
-  min-width: 100px;
-  cursor: pointer;
-  background: white url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 5'%3E%3Cpath fill='%23343a40' d='M2 0L0 2h4zm0 5L0 3h4z'/%3E%3C/svg%3E") no-repeat right .75rem center;
-  background-size: 8px 10px;
-  -webkit-appearance: none;
-  appearance: none;
-  padding-right: 30px;
-}
-
-/* Add this to the root-controls section in style.css (around line 1083) */
-#scale-select, #chord-select {
-  padding: 10px 20px;
-  border-radius: var(--border-radius-md);
-  border: 1px solid var(--panel-border);
-  background: white;
-  font-size: 14px;
-  min-width: 140px;
-  margin-bottom: 10px;
-  cursor: pointer;
-  background: white url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 5'%3E%3Cpath fill='%23343a40' d='M2 0L0 2h4zm0 5L0 3h4z'/%3E%3C/svg%3E") no-repeat right .75rem center;
-  background-size: 8px 10px;
-  -webkit-appearance: none;
-  appearance: none;
-  padding-right: 30px;
-}
-
-.compact-slider-control {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  min-width: 150px;
-}
-
-.compact-slider-control label {
-  font-size: 14px;
-  margin-bottom: 5px;
-  color: var(--text-dark);
-}
-
-.compact-slider-control input {
+  display: block;
   width: 100%;
-  accent-color: var(--accent-color);
-  height: 4px;
-  cursor: pointer;
 }
 
+#root-note-select,
+#scale-select,
+#chord-select {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  background-color: #fff;
+  font-size: 16px;
+  appearance: auto;
+  -webkit-appearance: menulist;
+  margin-bottom: 10px;
+}
+
+/* Ensure proper spacing for duration controls */
+.compact-slider-control {
+  margin-top: 15px;
+  width: 100%;
+}
+
+/* Make sure the action buttons are properly displayed */
 .action-buttons {
   display: flex;
-  gap: 15px;
-  margin-bottom: 20px;
-  justify-content: center;
   flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+  justify-content: center;
 }
 
 .control-button {
@@ -880,6 +840,34 @@ body {
 
 .practice-panel-close:active {
   transform: scale(0.95);
+}
+
+/* Back button for practice panel */
+.practice-back-button {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: var(--text-dark);
+  transition: color var(--transition-fast), transform var(--transition-fast);
+  z-index: 910; /* Same z-index as close button */
+  padding: 5px 10px;
+  border-radius: var(--border-radius-sm);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--panel-border);
+}
+
+.practice-back-button:hover {
+  color: var(--accent-color);
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateX(-3px);
+}
+
+.practice-back-button:active {
+  transform: translateX(0) scale(0.95);
 }
 
 /* Challenge Display as LCD Screen */
@@ -1962,30 +1950,51 @@ body {
 
 /* Digital Scoreboard Style for Practice Stats */
 .practice-stats-panel {
-  position: absolute;
-  top: 25px;          /* Add some padding from the top */
-  right: 35px;        /* Add some padding from the right */
-  width: 200px;       /* Reduce width from 250px to 200px */
+  position: absolute;       /* Change to absolute position to allow dragging */
+  top: 40px;                /* Position level with the digital piano */
+  right: 20px;              /* Position from right of viewport */
+  width: 220px;             /* Keep the width */
   background: #000;
   border-radius: 8px;
-  padding: 12px;      /* Reduce padding from 15px to 12px */
+  padding: 15px;
   box-shadow: 0 0 15px rgba(0, 200, 255, 0.5), inset 0 0 8px rgba(0, 200, 255, 0.2);
   border: 2px solid #004080;
   z-index: 900;
   color: #00ff00;
   font-family: 'Digital', 'Courier New', monospace;
-  transform: scale(0.85); /* Scale down the entire panel to 85% */
-  transform-origin: top right; /* Scale from the top right corner */
+  cursor: move;            /* Show move cursor for draggable element */
+  user-select: none;       /* Prevent text selection during drag */
+  touch-action: none;      /* Improve touch drag support */
 }
 
+/* Add a dragger handle that shows this panel can be moved */
 .stats-header {
   color: #00ccff;
   text-align: center;
-  font-size: 16px;    /* Reduce font size from 18px to 16px */
-  margin-bottom: 8px; /* Reduce margin from 10px to 8px */
+  font-size: 16px;
+  margin-bottom: 10px;
   text-shadow: 0 0 5px rgba(0, 204, 255, 0.7);
   border-bottom: 1px solid #004080;
-  padding-bottom: 6px; /* Reduce padding from 8px to 6px */
+  padding-bottom: 8px;
+  cursor: move;            /* Show move cursor for the header specifically */
+  position: relative;      /* For positioning the drag handle indicator */
+}
+
+/* Add visual drag handle indicator */
+.stats-header::before {
+  content: '☰';           /* Unicode hamburger icon as drag handle */
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-size: 14px;
+  opacity: 0.7;
+  color: #00ccff;
+}
+
+/* Show when being dragged */
+.practice-stats-panel.dragging {
+  opacity: 0.8;
+  box-shadow: 0 0 20px rgba(0, 200, 255, 0.7), inset 0 0 8px rgba(0, 200, 255, 0.3);
 }
 
 .stats-row {
@@ -1996,23 +2005,23 @@ body {
 
 .stat-item {
   text-align: center;
-  margin: 6px 0;      /* Reduce margin from 8px to 6px */
+  margin: 8px 0;            /* Restore original margin */
   width: 48%;
 }
 
 .stat-label {
-  font-size: 11px;    /* Reduce font size from 12px to 11px */
+  font-size: 12px;          /* Restore original font size */
   color: #00ccff;
   opacity: 0.8;
-  margin-bottom: 3px; /* Reduce margin from 5px to 3px */
+  margin-bottom: 5px;       /* Restore original margin */
 }
 
 .stat-value {
-  font-size: 20px;    /* Reduce font size from 24px to 20px */
+  font-size: 22px;          /* Slightly larger than original but not too large */
   font-weight: bold;
   color: #00ff00;
   text-shadow: 0 0 8px rgba(0, 255, 0, 0.7);
-  padding: 3px 0;     /* Reduce padding from 4px to 3px */
+  padding: 4px 0;           /* Restore original padding */
 }
 
 /* Optional: Add a digital font if you want */
@@ -2048,6 +2057,51 @@ body {
   right: 0;
   height: 1px;
   background: linear-gradient(to right, transparent, rgba(0, 255, 0, 0.2), transparent);
+}
+
+.chord-item span:not(.chord-number):not(.drag-handle) {
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Chord duplication styles */
+.chord-item.duplicating {
+  opacity: 0.7;
+  box-shadow: var(--shadow-medium);
+  border: 1px dashed var(--accent-color);
+}
+
+.chord-item.alt-drag-over {
+  border: 2px dashed var(--accent-color);
+  background-color: rgba(0, 160, 255, 0.05);
+}
+
+.chord-item.alt-drag-over::after {
+  content: 'copy';
+  position: absolute;
+  right: 10px;
+  font-size: 10px;
+  color: var(--accent-color);
+  background: rgba(255, 255, 255, 0.7);
+  padding: 2px 4px;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+
+.progression-display::after {
+  content: '💡 Tip: Hold Option/Alt key while dragging to duplicate chords';
+  display: block;
+  font-size: 12px;
+  color: #555;
+  background: rgba(255, 255, 220, 0.7);
+  border: 1px dashed #ccc;
+  border-radius: 4px;
+  padding: 6px;
+  margin-top: 10px;
+  text-align: center;
+  font-style: italic;
 }
 
 /* Fix for mode selector buttons */
@@ -2097,6 +2151,7 @@ body {
   height: 40px;
   cursor: pointer;
   transition: transform 0.1s ease;
+  z-index: 5; /* Ensure the knob is above the indicator */
 }
 
 /* Add a central indent to make it look more realistic */
@@ -2113,6 +2168,8 @@ body {
     0 3px 6px rgba(0,0,0,0.8),
     inset 0 1px 3px rgba(255,255,255,0.2);
   border: 1px solid #111;
+  z-index: 2;
+  pointer-events: none;
 }
 
 /* Improve the knob marker */
@@ -2127,15 +2184,20 @@ body {
   transform: translateX(-50%);
   border-radius: 2px;
   box-shadow: 0 0 3px rgba(0,204,255,0.7);
+  z-index: 4; /* Ensure it's above the knob but below input */
+  pointer-events: none; /* Don't interfere with the knob click events */
 }
 
 .knob-input {
   position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   opacity: 0;
   cursor: pointer;
-  z-index: 10;
+  z-index: 15; /* Higher z-index to ensure it captures events */
+  border-radius: 50%;
 }
 
 /* Add rotation effect on hover */
@@ -2156,6 +2218,8 @@ body {
   background: linear-gradient(135deg, #333, #111);
   box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
   border: 1px solid #000;
+  z-index: 3;
+  pointer-events: none;
 }
 
 /* Add this for the outer indicator ring */
@@ -2172,6 +2236,7 @@ body {
   border: 2px solid #222;
   z-index: 1;
   box-sizing: border-box;
+  pointer-events: none;
 }
 
 .volume-level-indicator {
@@ -2246,49 +2311,4 @@ body {
   .progression-display {
     max-height: 400px;
   }
-}
-
-.chord-item span:not(.chord-number):not(.drag-handle) {
-  font-size: 14px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Chord duplication styles */
-.chord-item.duplicating {
-  opacity: 0.7;
-  box-shadow: var(--shadow-medium);
-  border: 1px dashed var(--accent-color);
-}
-
-.chord-item.alt-drag-over {
-  border: 2px dashed var(--accent-color);
-  background-color: rgba(0, 160, 255, 0.05);
-}
-
-.chord-item.alt-drag-over::after {
-  content: 'copy';
-  position: absolute;
-  right: 10px;
-  font-size: 10px;
-  color: var(--accent-color);
-  background: rgba(255, 255, 255, 0.7);
-  padding: 2px 4px;
-  border-radius: 3px;
-  text-transform: uppercase;
-}
-
-.progression-display::after {
-  content: '💡 Tip: Hold Option/Alt key while dragging to duplicate chords';
-  display: block;
-  font-size: 12px;
-  color: #555;
-  background: rgba(255, 255, 220, 0.7);
-  border: 1px dashed #ccc;
-  border-radius: 4px;
-  padding: 6px;
-  margin-top: 10px;
-  text-align: center;
-  font-style: italic;
 }

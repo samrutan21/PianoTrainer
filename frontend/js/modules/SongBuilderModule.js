@@ -226,6 +226,20 @@ const SongBuilderModule = {
             progressionPanel.style.display = 'none';
             progressionPanel.classList.remove('visible');
             console.log('Hiding Song Builder panel without affecting other panels');
+            
+            // Remove active class from the corresponding menu item
+            const menuItems = document.querySelectorAll('.menu-item');
+            menuItems.forEach(item => {
+              if (item.getAttribute('data-target') === 'progression-panel') {
+                item.classList.remove('active');
+                console.log('Removed active class from Song Builder menu item');
+              }
+            });
+            
+            // Update the visible panels state
+            const currentPanels = AppState.get('ui.visiblePanels') || [];
+            const updatedPanels = currentPanels.filter(id => id !== 'progression-panel');
+            AppState.set('ui.visiblePanels', updatedPanels);
           }
         });
       }

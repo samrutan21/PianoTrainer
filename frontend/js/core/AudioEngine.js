@@ -536,8 +536,23 @@ const AudioEngine = {
      * @returns {string[]} Array of unique note names
      */
     getUniqueNoteNames() {
-      return [...new Set(Object.keys(this.noteFrequencies).map(note => note.replace(/[0-9]/g, '')))];
-    },   
+      // Get unique note names from frequencies
+      const noteFreqKeys = Object.keys(this.noteFrequencies);
+      
+      if (!noteFreqKeys || noteFreqKeys.length === 0) {
+        console.warn('AudioEngine: No note frequencies found, returning standard set');
+        // Return a standard set of notes
+        return ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+      }
+      
+      // Extract unique note names without octaves
+      const uniqueNotes = [...new Set(noteFreqKeys.map(note => note.replace(/[0-9]/g, '')))];
+      
+      // Sort in standard order
+      const noteOrder = { 'C': 0, 'C#': 1, 'D': 2, 'D#': 3, 'E': 4, 'F': 5, 'F#': 6, 'G': 7, 'G#': 8, 'A': 9, 'A#': 10, 'B': 11 };
+      
+      return uniqueNotes.sort((a, b) => noteOrder[a] - noteOrder[b]);
+    },
     
     /**
      * Find the lowest octave for a given note on our keyboard

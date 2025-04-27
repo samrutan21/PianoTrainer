@@ -55,20 +55,44 @@ const EventManager = {
     },
     
     /**
-     * Remove an event listener by ID
-     * @param {string} id - Listener ID returned from on()
-     * @returns {boolean} True if successfully removed
+     * Remove an event listener by ID or by element and event type
+     * @param {string|Element} elementOrId - Listener ID or DOM element
+     * @param {string} [eventType] - Event type (required if first param is an element)
+     * @returns {boolean|number} True if removed by ID, or count of removed listeners
      */
-    off(id) {
-      if (!this.registeredListeners.has(id)) {
-        return false;
+    off(elementOrId, eventType) {
+      // If first argument is a string, treat as ID
+      if (typeof elementOrId === 'string') {
+        if (!this.registeredListeners.has(elementOrId)) {
+          return false;
+        }
+        
+        const { element, eventType, handler, options } = this.registeredListeners.get(elementOrId);
+        element.removeEventListener(eventType, handler, options);
+        this.registeredListeners.delete(elementOrId);
+        
+        return true;
       }
       
-      const { element, eventType, handler, options } = this.registeredListeners.get(id);
-      element.removeEventListener(eventType, handler, options);
-      this.registeredListeners.delete(id);
+      // Otherwise, treat as element + eventType
+      if (!elementOrId || !eventType) return 0;
       
-      return true;
+      let count = 0;
+      const idsToRemove = [];
+      
+      // Find all matching listeners
+      for (const [id, data] of this.registeredListeners.entries()) {
+        if (data.element === elementOrId && data.eventType === eventType) {
+          elementOrId.removeEventListener(eventType, data.handler, data.options);
+          idsToRemove.push(id);
+          count++;
+        }
+      }
+      
+      // Remove from our registry
+      idsToRemove.forEach(id => this.registeredListeners.delete(id));
+      
+      return count;
     },
     
     /**

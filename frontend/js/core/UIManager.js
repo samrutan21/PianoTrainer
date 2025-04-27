@@ -35,7 +35,7 @@ const UIManager = {
         
         // Control elements
         volumeKnob: document.getElementById('volume-knob'),
-        volumeSlider: document.querySelector('#volume-knob input'),
+        volumeSlider: document.getElementById('volume-slider'),
         instrumentDisplay: document.getElementById('instrument-display'),
         midiIndicator: document.getElementById('midi-indicator'),
         
@@ -230,6 +230,26 @@ const UIManager = {
       if (show) {
         statsPanel.classList.add('active');
         this.showElement(statsPanel);
+        
+        // Ensure the panel is positioned correctly if it hasn't been moved by the user yet
+        if (!statsPanel.style.left && !statsPanel.style.top) {
+          // Position relative to the piano wrapper (top aligned with piano)
+          const wrapper = document.querySelector('.wrapper');
+          if (wrapper) {
+            const wrapperRect = wrapper.getBoundingClientRect();
+            const panelRect = statsPanel.getBoundingClientRect();
+            
+            // Position next to the piano (to the right)
+            const left = wrapperRect.right + 20;
+            const top = wrapperRect.top;
+            
+            // Apply position
+            statsPanel.style.left = `${left}px`;
+            statsPanel.style.top = `${top}px`;
+            
+            console.log('Positioned practice stats panel next to the piano');
+          }
+        }
       } else {
         statsPanel.classList.remove('active');
         this.hideElement(statsPanel);
@@ -326,7 +346,7 @@ const UIManager = {
     },
     
     /**
-     * Setup practice mode UI
+     * Set up practice mode UI
      * @param {string} mode - Practice mode ('scale', 'chord', 'none')
      */
     setupPracticeModeUI(mode) {
@@ -348,6 +368,49 @@ const UIManager = {
       const keySelectionContainer = document.getElementById('key-selection-container');
       if (keySelectionContainer) {
         keySelectionContainer.style.display = mode === 'chord' ? 'flex' : 'none';
+      }
+      
+      // Get root note container and select
+      const rootNoteContainer = document.getElementById('root-note-container');
+      const rootNoteSelect = document.getElementById('root-note-select');
+      const scaleSelectElement = document.getElementById('scale-select');
+      const chordSelectElement = document.getElementById('chord-select');
+      
+      // Manage root note container visibility
+      if (rootNoteContainer) {
+        rootNoteContainer.style.display = (mode === 'scale' || mode === 'chord') ? 'block' : 'none';
+      }
+      
+      // Manage root note select visibility
+      if (rootNoteSelect) {
+        rootNoteSelect.style.display = (mode === 'scale' || mode === 'chord') ? 'block' : 'none';
+      }
+      
+      // Manage scale and chord select visibility
+      if (scaleSelectElement) {
+        scaleSelectElement.style.display = mode === 'scale' ? 'block' : 'none';
+      }
+      
+      if (chordSelectElement) {
+        chordSelectElement.style.display = mode === 'chord' ? 'block' : 'none';
+      }
+      
+      // Manage back button visibility
+      const backButton = document.getElementById('back-to-practice-home');
+      if (backButton) {
+        backButton.style.display = (mode === 'scale' || mode === 'chord') ? 'block' : 'none';
+      }
+      
+      // Manage practice buttons visibility
+      const playSelectedButton = document.getElementById('play-selected');
+      const startPracticeButton = document.getElementById('start-practice');
+      
+      if (playSelectedButton) {
+        playSelectedButton.style.display = (mode === 'scale' || mode === 'chord') ? 'block' : 'none';
+      }
+      
+      if (startPracticeButton) {
+        startPracticeButton.style.display = (mode === 'scale' || mode === 'chord') ? 'block' : 'none';
       }
       
       if (mode === 'scale') {
@@ -407,14 +470,36 @@ const UIManager = {
      * @param {number} value - Value between 0 and 1
      */
     updateKnobRotation(value) {
-      const volumeKnob = this.elements.volumeKnob;
-      if (!volumeKnob) return;
+      const volumeKnob = document.getElementById('volume-knob'); // Direct reference for reliability
+      if (!volumeKnob) {
+        console.error('updateKnobRotation: Volume knob element not found');
+        return;
+      }
       
-      const rotation = -135 + (value * 270); // -135 to 135 degrees
+      // Make sure we have a valid number and clamp between 0 and 1
+      if (isNaN(value)) {
+        console.warn('updateKnobRotation: Invalid value provided:', value);
+        value = 0.5; // Default to mid-value
+      }
+      
+      const clampedValue = Math.max(0, Math.min(1, value));
+      
+      // Calculate rotation angle: -135° to +135° (270° total range)
+      const rotation = -135 + (clampedValue * 270); // -135 to 135 degrees
+      
+      // Apply rotation to the knob
       volumeKnob.style.transform = `rotate(${rotation}deg)`;
       
-      // Also update volume level indicator dots via CSS variable
-      document.documentElement.style.setProperty('--volume-angle', `${value * 270}deg`);
+      // Make sure the marker is correctly positioned
+      const marker = volumeKnob.querySelector('.knob-marker');
+      if (marker) {
+        marker.style.display = 'block';
+      }
+      
+      // Update the volume level indicator via CSS variable
+      document.documentElement.style.setProperty('--volume-angle', `${clampedValue * 270}deg`);
+      
+      console.log(`Updated volume knob rotation: value=${clampedValue}, angle=${rotation}deg`);
     },
     
     /**
@@ -462,11 +547,12 @@ const UIManager = {
     /**
      * Show a specific panel and hide others
      * @param {string} panelId - ID of the panel to show
+     * @param {boolean} exclusive - Whether to hide other panels (default: false)
      */
-    showPanel(panelId) {
-      console.log('UIManager: Attempting to show panel:', panelId);
+    showPanel(panelId, exclusive = false) {
+      console.log('UIManager: Attempting to show panel:', panelId, 'exclusive:', exclusive);
       
-      // Get all panels - including all possible panel types
+      // Get all panels
       const panels = document.querySelectorAll('.panel, .youtube-panel, .practice-panel, .progression-panel');
       console.log('UIManager: Found panels:', panels.length);
       
@@ -475,16 +561,21 @@ const UIManager = {
         return;
       }
       
-      // Log all found panels
-      panels.forEach(panel => {
-        console.log('UIManager: Found panel:', panel.id);
-      });
-      
-      // Hide all panels first
-      panels.forEach(panel => {
-        console.log('UIManager: Hiding panel:', panel.id);
-        panel.style.display = 'none';
-      });
+      // If exclusive mode, hide all other panels first
+      if (exclusive) {
+        console.log('UIManager: Hiding all other panels (exclusive mode)');
+        panels.forEach(panel => {
+          if (panel.id !== panelId) {
+            console.log(`UIManager: Hiding panel: ${panel.id}`);
+            panel.style.display = 'none';
+            
+            // Special handling for progression panel
+            if (panel.id === 'progression-panel') {
+              panel.classList.remove('visible');
+            }
+          }
+        });
+      }
       
       // Show the requested panel
       const targetPanel = document.getElementById(panelId);
@@ -501,25 +592,64 @@ const UIManager = {
         if (item.getAttribute('data-target') === panelId) {
           item.classList.add('active');
           console.log('UIManager: Activated menu item for:', panelId);
-        } else {
+        } else if (exclusive) {
+          // Only remove active class from other menu items if in exclusive mode
           item.classList.remove('active');
         }
       });
       
       // Show the panel
       targetPanel.style.display = 'block';
+      if (targetPanel.id === 'progression-panel') {
+        targetPanel.classList.add('visible');
+      }
       console.log('UIManager: Successfully showed panel:', panelId);
       
       // Update the current panel in state
+      const currentPanels = AppState.get('ui.visiblePanels') || [];
+      if (!currentPanels.includes(panelId)) {
+        currentPanels.push(panelId);
+        AppState.set('ui.visiblePanels', currentPanels);
+      }
       AppState.set('ui.currentPanel', panelId);
       
-      // If this is a practice-related panel, ensure practice mode is properly set up
+      // If this is a practice-related panel, reset the UI to initial state
       if (panelId === 'practice-panel') {
-        const practiceMode = AppState.get('practice.mode');
-        if (practiceMode === 'none') {
-          console.log('UIManager: Practice panel shown but no mode selected, defaulting to chord mode');
-          PracticeModule.setMode('chord');
+        console.log('UIManager: Resetting practice panel to initial state');
+        
+        // Always reset to the initial mode selection screen
+        // Hide the practice options, show the initial selectors
+        const practiceOptions = document.querySelector('.practice-options');
+        const initialSelectors = document.querySelector('.practice-initial-selectors');
+        const backButton = document.getElementById('back-to-practice-home');
+        const playSelectedButton = document.getElementById('play-selected');
+        const startPracticeButton = document.getElementById('start-practice');
+        
+        if (practiceOptions) practiceOptions.style.display = 'none';
+        if (initialSelectors) initialSelectors.style.display = 'flex';
+        if (backButton) backButton.style.display = 'none';
+        if (playSelectedButton) playSelectedButton.style.display = 'none';
+        if (startPracticeButton) startPracticeButton.style.display = 'none';
+        
+        // Reset the practice mode to 'none'
+        AppState.set('practice.mode', 'none');
+        AppState.set('practice.optionsVisible', false);
+        
+        // Hide the stats panel if it's visible
+        this.showPracticeStats(false);
+        
+        // Make sure practice is not active
+        if (AppState.get('practice.isActive')) {
+          // Stop practice mode
+          PracticeModule.stopPractice();
         }
+        
+        // Clear any challenge display or feedback
+        this.updateChallengeDisplay('');
+        this.showFeedback('');
+        
+        // Setup practice UI with 'none' mode
+        this.setupPracticeModeUI('none');
       }
       
       // If this is the progression panel, ensure it's properly initialized
@@ -528,7 +658,17 @@ const UIManager = {
         // Update song dropdown
         const songs = AppState.get('songs');
         if (songs) {
-          UIManager.updateSongDropdown(songs);
+          this.updateSongDropdown(songs);
+        }
+        
+        // Always default to "Create New Song..." option when opening the progression panel
+        const songSelect = document.getElementById('song-select');
+        if (songSelect) {
+          console.log('UIManager: Setting song dropdown to "Create New Song..."');
+          songSelect.value = 'new';
+          
+          // Trigger a change event to update the UI based on this selection
+          songSelect.dispatchEvent(new Event('change'));
         }
       }
     },
@@ -548,6 +688,11 @@ const UIManager = {
         panel.classList.remove('visible');
       }
       
+      // Update visible panels list
+      const currentPanels = AppState.get('ui.visiblePanels') || [];
+      const updatedPanels = currentPanels.filter(id => id !== panelId);
+      AppState.set('ui.visiblePanels', updatedPanels);
+      
       // Clear active menu item if this is the current panel
       if (AppState.get('ui.currentPanel') === panelId) {
         const menuItems = this.elements.menuItems;
@@ -560,7 +705,7 @@ const UIManager = {
         }
         
         // Update state
-        AppState.set('ui.currentPanel', null);
+        AppState.set('ui.currentPanel', updatedPanels.length > 0 ? updatedPanels[0] : null);
       }
     },
     

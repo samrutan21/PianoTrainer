@@ -134,99 +134,38 @@ function setupMenuListeners() {
   
   // Handle menu item clicks
   menuItems.forEach(item => {
-    const targetId = item.getAttribute('data-target');
-    console.log('Setting up menu item:', targetId);
+    console.log('Setting up menu item:', item.getAttribute('data-target'));
     
-    EventManager.on(item, 'click', (e) => {
-      console.log('Menu item clicked:', targetId);
-      console.log('Menu item element:', item);
+    item.addEventListener('click', () => {
+      const targetPanel = item.getAttribute('data-target');
+      console.log('Menu item clicked. Target panel:', targetPanel);
       
-      // Log AppState to check for any interfering state
-      console.log('Current AppState UI properties:', {
-        currentPanel: AppState.get('ui.currentPanel'),
-        activeDragChordItem: AppState.get('ui.activeDragChordItem'),
-        activeDragSectionItem: AppState.get('ui.activeDragSectionItem'),
-        isDuplicatingDrag: AppState.get('ui.isDuplicatingDrag')
-      });
+      // Get all currently visible panels
+      const visiblePanels = AppState.get('ui.visiblePanels') || [];
+      const isPracticeVisible = visiblePanels.includes('practice-panel');
+      const isProgressionVisible = visiblePanels.includes('progression-panel');
+      const isYoutubeVisible = visiblePanels.includes('youtube-panel');
       
-      // First ensure audio context is running
-      window.resumeAudioContext().then(() => {
-        if (targetId) {
-          // Special case for progression-panel when practice-panel is open
-          const isPracticePanelOpen = document.getElementById('practice-panel').style.display === 'block';
-          
-          if (targetId === 'progression-panel' && isPracticePanelOpen) {
-            // Show the progression panel without hiding the practice panel
-            const progressionPanel = document.getElementById('progression-panel');
-            if (progressionPanel) {
-              progressionPanel.style.display = 'block';
-              progressionPanel.classList.add('visible');
-              
-              // Update active menu item
-              menuItems.forEach(menuItem => menuItem.classList.remove('active'));
-              item.classList.add('active');
-              
-              // Initialize the progression panel
-              console.log('Initializing progression panel alongside practice panel...');
-              SongBuilderModule.updateSongSectionsDisplay();
-              
-              UIManager.showFeedback(`Opened Song Builder alongside Practice mode`, 'info', 2000);
-            }
-            return;
-          }
-          
-          // Standard behavior for other panels
-          // Hide all panels first
-          const panels = ['practice-panel', 'progression-panel', 'youtube-panel'];
-          panels.forEach(panelId => {
-            const panel = document.getElementById(panelId);
-            if (panel) {
-              panel.style.display = 'none';
-              console.log(`Hiding panel: ${panelId}`);
-            }
-          });
-          
-          // Show the target panel
-          const targetPanel = document.getElementById(targetId);
-          if (targetPanel) {
-            console.log(`Showing panel: ${targetId}`);
-            targetPanel.style.display = 'block';
-            targetPanel.classList.add('visible');
-            
-            // Update active menu item
-            menuItems.forEach(menuItem => menuItem.classList.remove('active'));
-            item.classList.add('active');
-            
-            // Initialize panel-specific functionality
-            switch(targetId) {
-              case 'practice-panel':
-                console.log('Initializing practice panel...');
-                PracticeModule.setupPracticeModeUI();
-                break;
-              case 'progression-panel':
-                console.log('Initializing progression panel...');
-                SongBuilderModule.updateSongSectionsDisplay();
-                break;
-              case 'youtube-panel':
-                console.log('Initializing YouTube panel...');
-                if (typeof YouTubeChordModule !== 'undefined') {
-                  YouTubeChordModule.resetUI();
-                }
-                break;
-            }
-            
-            UIManager.showFeedback(`Switched to ${targetId.replace('-panel', '')} mode`, 'info', 2000);
-          } else {
-            console.error(`Target panel not found: ${targetId}`);
-            UIManager.showFeedback('Error: Panel not found', 'error', 3000);
-          }
-        } else {
-          console.error('Menu item has no data-target attribute');
+      // Special cases for the three content panels that can be open simultaneously
+      const contentPanels = ['practice-panel', 'progression-panel', 'youtube-panel'];
+      
+      // Check if target is one of our content panels
+      if (contentPanels.includes(targetPanel)) {
+        // Check if any other content panel is already visible
+        const hasOtherContentPanelOpen = visiblePanels.some(panel => 
+          contentPanels.includes(panel) && panel !== targetPanel
+        );
+        
+        if (hasOtherContentPanelOpen) {
+          console.log(`Special case: ${targetPanel} clicked with other content panel(s) open - keeping all visible`);
+          UIManager.showPanel(targetPanel, false); // non-exclusive mode
+          return;
         }
-      }).catch(error => {
-        console.error('Failed to resume audio context:', error);
-        UIManager.showFeedback('Error: Could not initialize audio', 'error', 3000);
-      });
+      }
+      
+      // For all other cases, show panel exclusively (hide others)
+      console.log('Standard case: Hiding other panels and showing', targetPanel);
+      UIManager.showPanel(targetPanel, true);
     });
   });
   
@@ -237,70 +176,157 @@ function setupMenuListeners() {
  * Set up volume knob UI and event handlers
  */
 function setupVolumeKnob() {
-  const volumeKnob = document.getElementById('volume-knob');
-  const volumeSlider = document.querySelector('#volume-knob input');
+  console.log('Setting up volume knob');
   
+  // Get DOM elements
+  const volumeKnob = document.getElementById('volume-knob');
+  const volumeSlider = document.getElementById('volume-slider');
+  
+  console.log('Volume knob element:', volumeKnob);
+  console.log('Volume slider element:', volumeSlider);
+  
+  // Check if knob elements are present
   if (!volumeKnob || !volumeSlider) {
-    console.warn('Volume knob elements not found');
+    console.warn('Volume knob elements not found, using default volume');
     return;
   }
   
-  // Set initial position
-  const initialVolume = AppState.get('audio.volume');
-  volumeSlider.value = initialVolume;
-  UIManager.updateKnobRotation(initialVolume);
+  // Initialize initial volume
+  let currentVolume = 0.5; // Default
   
-  // Add direct click/drag handling
+  // Try to get volume from slider if available
+  if (!isNaN(parseFloat(volumeSlider.value))) {
+    currentVolume = parseFloat(volumeSlider.value);
+  }
+  
+  // Clear any existing event listeners
+  EventManager.removeAll(volumeKnob);
+  
+  // Initialize state variables
   let isDragging = false;
-  let startY, startValue;
+  let startY = 0;
   
-  EventManager.on(volumeKnob, 'mousedown', function(e) {
+  // Make sure the knob rotation matches the initial volume
+  UIManager.updateKnobRotation(currentVolume);
+  
+  // Setup DOM event handlers for better drag handling
+  function onMouseDown(e) {
+    console.log('Volume knob mouse down event fired');
     isDragging = true;
     startY = e.clientY;
-    startValue = AppState.get('audio.volume');
-    document.body.style.cursor = 'grabbing';
     
-    // Prevent text selection during drag
+    // Capture mouse events outside the knob
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    
+    // Prevent text selection during dragging
+    document.body.style.userSelect = 'none';
     e.preventDefault();
-  });
+    console.log('Volume knob: Mouse down, tracking started at Y:', startY);
+  }
   
-  EventManager.on(document, 'mousemove', function(e) {
+  function onMouseMove(e) {
     if (!isDragging) return;
     
-    // Calculate new value based on vertical drag (up = increase, down = decrease)
+    console.log('Mouse move while dragging at Y:', e.clientY);
+    
+    // Calculate volume change based on vertical movement (up = increase, down = decrease)
     const deltaY = startY - e.clientY;
-    let newValue = startValue + (deltaY / 200); // Adjust sensitivity
+    const volumeDelta = deltaY * 0.005; // Adjust sensitivity
     
-    // Clamp value between 0 and 1
-    newValue = Math.max(0, Math.min(1, newValue));
+    console.log('Volume delta calculation:', { startY, currentY: e.clientY, deltaY, volumeDelta });
     
-    // Update volume
-    UIManager.updateKnobRotation(newValue);
+    // Update volume with limits
+    currentVolume = Math.max(0, Math.min(1, currentVolume + volumeDelta));
     
-    // Update state and audio
-    AppState.set('audio.volume', newValue);
-    AudioEngine.setVolume(newValue);
+    // Update the UI and state
+    volumeSlider.value = currentVolume.toString();
+    UIManager.updateKnobRotation(currentVolume);
     
-    // Update slider value to keep in sync
-    volumeSlider.value = newValue;
+    // Update the audio engine
+    AudioEngine.setVolume(currentVolume);
+    
+    // Reset the start position for continuous movement
+    startY = e.clientY;
+    
+    console.log(`Volume updated: ${currentVolume.toFixed(2)}`);
+  }
+  
+  function onMouseUp() {
+    if (!isDragging) return;
+    
+    console.log('Mouse up event fired, ending knob interaction');
+    isDragging = false;
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+    document.body.style.userSelect = '';
+    console.log('Volume knob: Mouse up, tracking ended at volume:', currentVolume);
+  }
+  
+  // Add touch support
+  function onTouchStart(e) {
+    console.log('Touch start event fired on volume knob');
+    isDragging = true;
+    startY = e.touches[0].clientY;
+    
+    document.addEventListener('touchmove', onTouchMove, { passive: false });
+    document.addEventListener('touchend', onTouchEnd);
+    
+    e.preventDefault();
+    console.log('Volume knob: Touch start, tracking started at Y:', startY);
+  }
+  
+  function onTouchMove(e) {
+    if (!isDragging) return;
+    
+    console.log('Touch move while dragging');
+    
+    const deltaY = startY - e.touches[0].clientY;
+    const volumeDelta = deltaY * 0.005;
+    
+    currentVolume = Math.max(0, Math.min(1, currentVolume + volumeDelta));
+    
+    volumeSlider.value = currentVolume.toString();
+    UIManager.updateKnobRotation(currentVolume);
+    AudioEngine.setVolume(currentVolume);
+    
+    startY = e.touches[0].clientY;
+    e.preventDefault();
+    
+    console.log(`Volume updated on touch: ${currentVolume.toFixed(2)}`);
+  }
+  
+  function onTouchEnd() {
+    if (!isDragging) return;
+    
+    console.log('Touch end event fired, ending knob interaction');
+    isDragging = false;
+    document.removeEventListener('touchmove', onTouchMove);
+    document.removeEventListener('touchend', onTouchEnd);
+  }
+  
+  // Add event listeners directly to ensure they work
+  volumeKnob.addEventListener('mousedown', onMouseDown);
+  volumeKnob.addEventListener('touchstart', onTouchStart);
+  
+  // Also add event listener to the slider for direct input
+  volumeSlider.addEventListener('input', function() {
+    currentVolume = parseFloat(this.value);
+    console.log('Slider input event, new volume:', currentVolume);
+    UIManager.updateKnobRotation(currentVolume);
+    AudioEngine.setVolume(currentVolume);
   });
   
-  EventManager.on(document, 'mouseup', function() {
-    if (isDragging) {
-      isDragging = false;
-      document.body.style.cursor = '';
-    }
-  });
+  // Ensure knob marker is visible
+  const marker = volumeKnob.querySelector('.knob-marker');
+  if (marker) {
+    marker.style.display = 'block';
+    console.log('Volume knob marker is visible');
+  } else {
+    console.warn('Volume knob marker element not found');
+  }
   
-  // Also handle the standard input change event
-  EventManager.on(volumeSlider, 'input', function(e) {
-    const value = parseFloat(e.target.value);
-    UIManager.updateKnobRotation(value);
-    
-    // Update state and audio
-    AppState.set('audio.volume', value);
-    AudioEngine.setVolume(value);
-  });
+  console.log('Volume knob setup complete');
 }
 
 // Setup Show Keys toggle
@@ -525,5 +551,120 @@ function setupEventListeners() {
   // Setup YouTube chord module event listeners
   YouTubeChordModule.setupEventListeners();
   
+  // Make practice stats panel draggable
+  setupPracticeStatsDraggable();
+  
   console.log('Core event listeners setup complete');
+}
+
+/**
+ * Make the practice stats panel draggable
+ */
+function setupPracticeStatsDraggable() {
+  console.log('Setting up practice stats panel draggable functionality');
+  
+  const statsPanel = document.getElementById('practice-stats-panel');
+  if (!statsPanel) {
+    console.warn('Practice stats panel not found, skipping draggable setup');
+    return;
+  }
+  
+  let isDragging = false;
+  let startX, startY, startLeft, startTop;
+  
+  // Offset positions for the panel relative to the practice panel
+  statsPanel.style.transform = 'none'; // Ensure no transformations interfere with positioning
+  
+  // Move the panel outside the practice panel to the document body
+  // This ensures it can be dragged anywhere in the viewport
+  document.body.appendChild(statsPanel);
+  
+  // Function to handle mouse/touch down events
+  function onDragStart(e) {
+    const event = e.touches ? e.touches[0] : e;
+    isDragging = true;
+    
+    // Calculate starting positions
+    const rect = statsPanel.getBoundingClientRect();
+    startX = event.clientX;
+    startY = event.clientY;
+    
+    // Get current position from inline styles or computed styles
+    const computedStyle = window.getComputedStyle(statsPanel);
+    startLeft = parseInt(statsPanel.style.left || computedStyle.left) || rect.left;
+    startTop = parseInt(statsPanel.style.top || computedStyle.top) || rect.top;
+    
+    // Add dragging class for visual feedback
+    statsPanel.classList.add('dragging');
+    
+    // Prevent default behavior to avoid text selection, etc.
+    e.preventDefault();
+    
+    console.log('Started dragging practice stats panel');
+  }
+  
+  // Function to handle mouse/touch move events
+  function onDragMove(e) {
+    if (!isDragging) return;
+    
+    const event = e.touches ? e.touches[0] : e;
+    
+    // Calculate new position
+    const deltaX = event.clientX - startX;
+    const deltaY = event.clientY - startY;
+    
+    // Apply new position
+    statsPanel.style.left = `${startLeft + deltaX}px`;
+    statsPanel.style.top = `${startTop + deltaY}px`;
+    
+    // Prevent default to avoid scrolling while dragging
+    e.preventDefault();
+  }
+  
+  // Function to handle mouse/touch up events
+  function onDragEnd() {
+    if (!isDragging) return;
+    
+    isDragging = false;
+    statsPanel.classList.remove('dragging');
+    
+    console.log('Finished dragging practice stats panel');
+    
+    // Store position in local storage for persistence
+    try {
+      const position = {
+        left: statsPanel.style.left,
+        top: statsPanel.style.top
+      };
+      localStorage.setItem('practiceStatsPanelPosition', JSON.stringify(position));
+      console.log('Saved practice stats panel position to local storage');
+    } catch (error) {
+      console.warn('Could not save practice stats panel position to local storage:', error);
+    }
+  }
+  
+  // Restore position from local storage if available
+  try {
+    const savedPosition = localStorage.getItem('practiceStatsPanelPosition');
+    if (savedPosition) {
+      const position = JSON.parse(savedPosition);
+      statsPanel.style.left = position.left;
+      statsPanel.style.top = position.top;
+      console.log('Restored practice stats panel position from local storage');
+    }
+  } catch (error) {
+    console.warn('Could not restore practice stats panel position from local storage:', error);
+  }
+  
+  // Add event listeners
+  statsPanel.addEventListener('mousedown', onDragStart);
+  statsPanel.addEventListener('touchstart', onDragStart);
+  
+  document.addEventListener('mousemove', onDragMove);
+  document.addEventListener('touchmove', onDragMove, { passive: false });
+  
+  document.addEventListener('mouseup', onDragEnd);
+  document.addEventListener('touchend', onDragEnd);
+  
+  console.log('Practice stats panel draggable setup complete');
 }
