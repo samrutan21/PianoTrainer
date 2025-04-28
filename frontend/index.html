@@ -130,6 +130,23 @@
         <div class="stat-value" id="accuracy">0%</div>
       </div>
     </div>
+    <div class="stats-actions">
+      <button id="view-practice-sessions" class="control-button" style="display: none;">View Practice Sessions</button>
+    </div>
+  </div>
+
+  <!-- Practice Sessions Log Panel -->
+  <div id="practice-sessions-panel" class="practice-stats-panel" style="display: none;">
+    <div class="stats-header">PRACTICE SESSIONS</div>
+    <div class="sessions-list" id="sessions-list"></div>
+    <div class="session-details" id="session-details" style="display: none;">
+      <h3 id="session-title">Session Details</h3>
+      <div id="session-challenges"></div>
+      <button id="close-session-details" class="control-button">Back to Sessions</button>
+    </div>
+    <div class="stats-actions">
+      <button id="close-practice-sessions" class="control-button">Close</button>
+    </div>
   </div>
 
   <div class="practice-initial-selectors">
@@ -217,6 +234,7 @@
 <button id="play-selected" class="control-button">
   <i class="icon-play"></i> Play Selected</button>
 <button id="start-practice" class="control-button">Start Practice Mode</button>
+<button id="pause-practice" class="control-button" style="display: none; background-color: var(--warning-color);">Pause Practice</button>
 <button id="stop-practice" class="control-button" style="display: none; background-color: var(--error-color);">Stop Practice</button>
 <button id="save-to-progression" class="control-button">Song Builder</button>
 </div>

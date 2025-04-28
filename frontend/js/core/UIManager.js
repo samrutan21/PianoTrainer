@@ -231,6 +231,12 @@ const UIManager = {
         statsPanel.classList.add('active');
         this.showElement(statsPanel);
         
+        // Ensure the view practice sessions button is initially hidden
+        const viewSessionsButton = document.getElementById('view-practice-sessions');
+        if (viewSessionsButton) {
+          viewSessionsButton.style.display = 'none';
+        }
+        
         // Ensure the panel is positioned correctly if it hasn't been moved by the user yet
         if (!statsPanel.style.left && !statsPanel.style.top) {
           // Position relative to the piano wrapper (top aligned with piano)

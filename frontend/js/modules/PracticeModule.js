@@ -10,6 +10,21 @@
     waitingForUserInput: false,
 
     /**
+     * Track the last chord type that was played to avoid repetition
+     */
+    lastChordType: null,
+    
+    /**
+     * Track the last few chord types to avoid repetition
+     */
+    recentChordTypes: [],
+    
+    /**
+     * Maximum number of recent chord types to track
+     */
+    maxRecentChords: 3,
+
+    /**
      * Mark the module as waiting for user input
      */
     markAsWaitingForInput() {
@@ -101,6 +116,9 @@
       } else {
         console.log(`PracticeModule: Loaded ${Object.keys(chordPatterns).length} chord patterns`);
       }
+      
+      // Load practice session logs from storage
+      this.loadSessionLogsFromStorage();
       
       // Set up event listeners
       this.setupEventListeners();
@@ -203,80 +221,35 @@
         });
       }
 
-      // Difficulty selector
-      const difficultySelect = document.getElementById('difficulty-level');
-      if (difficultySelect) {
-        EventManager.on(difficultySelect, 'change', () => {
-          const difficulty = difficultySelect.value;
-          AppState.set('practice.config.difficulty', difficulty);
-          
-          // Update repetitions and display duration based on difficulty
-          switch (difficulty) {
-            case 'easy':
-              AppState.set('practice.config.repetitions', 3);
-              AppState.set('practice.config.displayDuration', 10000);
-              break;
-            case 'medium':
-              AppState.set('practice.config.repetitions', 2);
-              AppState.set('practice.config.displayDuration', 7000);
-              break;
-            case 'hard':
-              AppState.set('practice.config.repetitions', 1);
-              AppState.set('practice.config.displayDuration', 5000);
-              break;
-            case 'expert':
-              AppState.set('practice.config.repetitions', 1);
-              AppState.set('practice.config.displayDuration', 5000);
-              break;
-          }
-        });
-      }
-
-      // Feedback mode selector
-      const feedbackModeSelect = document.getElementById('practice-feedback-mode');
-      if (feedbackModeSelect) {
-        EventManager.on(feedbackModeSelect, 'change', () => {
-          AppState.set('practice.config.feedbackMode', feedbackModeSelect.value);
-        });
-      }
-
-      // Key selection mode selector
-      const keySelectionMode = document.getElementById('key-selection-mode');
-      const specificKeySelect = document.getElementById('specific-key');
-      if (keySelectionMode) {
-        EventManager.on(keySelectionMode, 'change', () => {
-          AppState.set('practice.config.keySelection', keySelectionMode.value);
-          
-          if (keySelectionMode.value === 'specific' && specificKeySelect) {
-            specificKeySelect.style.display = 'block';
-          } else if (specificKeySelect) {
-            specificKeySelect.style.display = 'none';
-          }
-        });
-      }
-
-      if (specificKeySelect) {
-        EventManager.on(specificKeySelect, 'change', () => {
-          AppState.set('practice.config.specificKey', specificKeySelect.value);
-        });
-      }
-      
-      // Play selected button
-      const playSelectedButton = document.getElementById('play-selected');
-      if (playSelectedButton) {
-        EventManager.on(playSelectedButton, 'click', () => this.playSelected());
-      }
-      
-      // Start practice button
+      // Practice start button
       const startPracticeButton = document.getElementById('start-practice');
       if (startPracticeButton) {
-        EventManager.on(startPracticeButton, 'click', () => this.startPractice());
+        EventManager.on(startPracticeButton, 'click', () => {
+          // If practice was paused, resume it, otherwise start fresh
+          if (AppState.get('practice.isPaused')) {
+            this.resumePractice();
+          } else {
+            this.startPractice();
+          }
+        });
       }
       
       // Stop practice button
       const stopPracticeButton = document.getElementById('stop-practice');
       if (stopPracticeButton) {
         EventManager.on(stopPracticeButton, 'click', () => this.stopPractice());
+      }
+      
+      // Pause practice button
+      const pausePracticeButton = document.getElementById('pause-practice');
+      if (pausePracticeButton) {
+        EventManager.on(pausePracticeButton, 'click', () => this.pausePractice());
+      }
+      
+      // Play selected button
+      const playSelectedButton = document.getElementById('play-selected');
+      if (playSelectedButton) {
+        EventManager.on(playSelectedButton, 'click', () => this.playSelected());
       }
       
       // Escape key to stop practice
@@ -314,6 +287,38 @@
           if (durationValue) {
             durationValue.textContent = durationInSeconds.toFixed(1);
           }
+        });
+      }
+      
+      // Key selection mode selector
+      const keySelectionMode = document.getElementById('key-selection-mode');
+      const specificKeySelect = document.getElementById('specific-key');
+      
+      if (keySelectionMode) {
+        EventManager.on(keySelectionMode, 'change', () => {
+          const selectedMode = keySelectionMode.value;
+          AppState.set('practice.config.keySelection', selectedMode);
+          
+          // Show/hide specific key selector based on mode
+          if (specificKeySelect) {
+            specificKeySelect.style.display = selectedMode === 'specific' ? 'block' : 'none';
+            
+            // Reset the specific key if switching to random mode
+            if (selectedMode === 'random') {
+              AppState.set('practice.config.specificKey', '');
+            }
+          }
+          
+          console.log(`Key selection mode changed to: ${selectedMode}`);
+        });
+      }
+      
+      // Specific key selector
+      if (specificKeySelect) {
+        EventManager.on(specificKeySelect, 'change', () => {
+          const selectedKey = specificKeySelect.value;
+          AppState.set('practice.config.specificKey', selectedKey);
+          console.log(`Specific key changed to: ${selectedKey}`);
         });
       }
       
@@ -370,6 +375,59 @@
           this.checkPlayedNotes();
         }
       });
+      
+      // Setup practice session logs panel
+      const viewPracticeSessionsBtn = document.getElementById('view-practice-sessions');
+      if (viewPracticeSessionsBtn) {
+        EventManager.on(viewPracticeSessionsBtn, 'click', () => {
+          this.showPracticeSessionsPanel();
+        });
+      }
+      
+      // Setup close practice sessions panel button
+      const closePracticeSessionsBtn = document.getElementById('close-practice-sessions');
+      if (closePracticeSessionsBtn) {
+        EventManager.on(closePracticeSessionsBtn, 'click', () => {
+          this.hidePracticeSessionsPanel();
+        });
+      }
+      
+      // Setup close session details button
+      const closeSessionDetailsBtn = document.getElementById('close-session-details');
+      if (closeSessionDetailsBtn) {
+        EventManager.on(closeSessionDetailsBtn, 'click', () => {
+          this.hideSessionDetails();
+        });
+      }
+      
+      // Setup delegate for session items
+      const sessionsList = document.getElementById('sessions-list');
+      if (sessionsList) {
+        EventManager.on(sessionsList, 'click', (e) => {
+          const sessionItem = e.target.closest('.session-item');
+          if (sessionItem) {
+            const sessionId = sessionItem.getAttribute('data-session-id');
+            if (sessionId) {
+              this.showSessionDetails(sessionId);
+            }
+          }
+        });
+      }
+      
+      // Setup delegate for challenge items
+      const sessionDetails = document.getElementById('session-details');
+      if (sessionDetails) {
+        EventManager.on(sessionDetails, 'click', (e) => {
+          const challengeItem = e.target.closest('.challenge-item');
+          if (challengeItem) {
+            const challengeIndex = challengeItem.getAttribute('data-index');
+            const sessionId = sessionDetails.getAttribute('data-session-id');
+            if (challengeIndex && sessionId) {
+              this.playChallenge(sessionId, parseInt(challengeIndex));
+            }
+          }
+        });
+      }
     },
     
     /**
@@ -454,6 +512,29 @@
       // Populate key selector if needed
       if (mode === 'chord') {
         this.populateKeySelector();
+        
+        // Initialize key selection mode display
+        const keySelectionMode = document.getElementById('key-selection-mode');
+        const specificKeySelect = document.getElementById('specific-key');
+        
+        if (keySelectionMode) {
+          // Set value from AppState
+          const currentMode = AppState.get('practice.config.keySelection') || 'random';
+          keySelectionMode.value = currentMode;
+          
+          // Update specific key selector visibility
+          if (specificKeySelect) {
+            specificKeySelect.style.display = currentMode === 'specific' ? 'block' : 'none';
+            
+            // If specific mode with a previously selected key, set it
+            if (currentMode === 'specific') {
+              const currentKey = AppState.get('practice.config.specificKey');
+              if (currentKey) {
+                specificKeySelect.value = currentKey;
+              }
+            }
+          }
+        }
       }
     },
 
@@ -600,10 +681,26 @@
         return;
       }
       
+      // Check if we're resuming or starting fresh
+      const startButton = document.getElementById('start-practice');
+      const isResuming = startButton && startButton.textContent === 'Resume Practice';
+      
+      if (isResuming && AppState.get('practice.isPaused')) {
+        // If we're resuming, call the resume method instead
+        this.resumePractice();
+        return;
+      }
+      
       // Reset practice state
       AppState.set('practice.playedNotes', []);
       AppState.set('practice.currentChallenge', []);
       AppState.set('practice.isActive', true);
+      AppState.set('practice.isPaused', false);
+      AppState.set('practice.pausedState', null);
+      
+      // Reset chord tracking
+      this.lastChordType = null;
+      this.recentChordTypes = [];
       
       // Reset practice stats if starting a new session
       if (confirm("Reset practice statistics?")) {
@@ -617,11 +714,19 @@
         UIManager.updatePracticeStats(AppState.practice.stats);
       }
       
+      // Start a new practice session log
+      this.startNewSessionLog();
+      
       // Show the practice stats panel
       UIManager.showPracticeStats(true);
       
-      // Show the stop practice button
+      // Show the stop and pause practice buttons
       UIManager.showElement('stop-practice');
+      UIManager.showElement('pause-practice');
+      UIManager.hideElement('start-practice');
+      
+      // Hide the View Practice Sessions button when starting
+      UIManager.hideElement('view-practice-sessions');
       
       console.log('Starting practice mode...');
       
@@ -635,12 +740,158 @@
     },
     
     /**
+     * Start a new practice session log
+     */
+    startNewSessionLog() {
+      // Create a unique ID for this session
+      const sessionId = Date.now().toString();
+      
+      // Create a new session log
+      const sessionLog = {
+        id: sessionId,
+        startTime: new Date(),
+        endTime: null,
+        mode: AppState.get('practice.mode'),
+        challenges: [],
+        difficulty: AppState.get('practice.config.difficulty')
+      };
+      
+      // Get current session logs
+      const sessionLogs = AppState.get('practice.sessionLogs') || [];
+      
+      // Add the new session log to the beginning of the array
+      sessionLogs.unshift(sessionLog);
+      
+      // Limit to 50 session logs to prevent excessive storage
+      if (sessionLogs.length > 50) {
+        sessionLogs.pop();
+      }
+      
+      // Update state
+      AppState.set('practice.sessionLogs', sessionLogs);
+      AppState.set('practice.currentSessionId', sessionId);
+      
+      console.log(`New practice session started: ${sessionId}`);
+      
+      // Save to localStorage immediately to avoid losing session on page refresh
+      this.saveSessionLogsToStorage();
+      
+      return sessionId;
+    },
+    
+    /**
+     * Save the session logs to localStorage
+     */
+    saveSessionLogsToStorage() {
+      try {
+        const sessionLogs = AppState.get('practice.sessionLogs');
+        localStorage.setItem('piano-app-practice-logs', JSON.stringify(sessionLogs));
+        console.log('Saved practice session logs to localStorage');
+      } catch (e) {
+        console.error('Failed to save practice session logs to localStorage:', e);
+      }
+    },
+    
+    /**
+     * Load session logs from localStorage
+     */
+    loadSessionLogsFromStorage() {
+      try {
+        const storedLogs = localStorage.getItem('piano-app-practice-logs');
+        if (storedLogs) {
+          const sessionLogs = JSON.parse(storedLogs);
+          
+          // Process date strings back to Date objects
+          sessionLogs.forEach(session => {
+            // Convert startTime and endTime strings to Date objects
+            if (session.startTime) session.startTime = new Date(session.startTime);
+            if (session.endTime) session.endTime = new Date(session.endTime);
+            
+            // Convert challenge timestamps to Date objects
+            if (session.challenges && Array.isArray(session.challenges)) {
+              session.challenges.forEach(challenge => {
+                if (challenge.timestamp) challenge.timestamp = new Date(challenge.timestamp);
+              });
+            }
+          });
+          
+          AppState.set('practice.sessionLogs', sessionLogs);
+          console.log(`Loaded ${sessionLogs.length} practice session logs from localStorage`);
+        }
+      } catch (e) {
+        console.error('Failed to load practice session logs from localStorage:', e);
+      }
+    },
+    
+    /**
+     * Add a challenge to the current session log
+     * @param {string} challengeType - Type of challenge (scale or chord)
+     * @param {string} description - Description of the challenge
+     * @param {Array} notes - Array of notes that make up the challenge
+     */
+    logChallenge(challengeType, description, notes) {
+      const currentSessionId = AppState.get('practice.currentSessionId');
+      if (!currentSessionId) return;
+      
+      const sessionLogs = AppState.get('practice.sessionLogs');
+      const currentSession = sessionLogs.find(log => log.id === currentSessionId);
+      
+      if (currentSession) {
+        // Add challenge to log
+        currentSession.challenges.push({
+          type: challengeType,
+          description: description,
+          notes: notes,
+          timestamp: new Date()
+        });
+        
+        // Update state and save
+        AppState.set('practice.sessionLogs', sessionLogs);
+        this.saveSessionLogsToStorage();
+      }
+    },
+    
+    /**
+     * End the current practice session log
+     */
+    endSessionLog() {
+      const currentSessionId = AppState.get('practice.currentSessionId');
+      if (!currentSessionId) return;
+      
+      const sessionLogs = AppState.get('practice.sessionLogs');
+      const currentSession = sessionLogs.find(log => log.id === currentSessionId);
+      
+      if (currentSession) {
+        // Set end time
+        currentSession.endTime = new Date();
+        
+        // Update state and save
+        AppState.set('practice.sessionLogs', sessionLogs);
+        this.saveSessionLogsToStorage();
+        
+        // Clear current session ID
+        AppState.set('practice.currentSessionId', null);
+        
+        console.log(`Practice session ended: ${currentSessionId}`);
+      }
+    },
+    
+    /**
      * Stop practice mode
      */
     stopPractice() {
+      // End the current session log
+      this.endSessionLog();
+      
       // Reset practice state
       AppState.set('practice.isActive', false);
       AppState.set('practice.playedNotes', []);
+      AppState.set('practice.isPaused', false);
+      AppState.set('practice.pausedState', null);
+      
+      // Reset chord tracking
+      this.lastChordType = null;
+      this.recentChordTypes = [];
       
       // Hide the practice stats panel
       UIManager.showPracticeStats(false);
@@ -663,8 +914,16 @@
         key.classList.remove('hint', 'scale-highlight');
       });
       
-      // Hide the stop button
+      // Hide the stop and pause buttons, show the start button
       UIManager.hideElement('stop-practice');
+      UIManager.hideElement('pause-practice');
+      UIManager.showElement('start-practice');
+      
+      // Reset the start button text
+      const startButton = document.getElementById('start-practice');
+      if (startButton) {
+        startButton.textContent = 'Start Practice Mode';
+      }
       
       // Clear the timeout that would generate the next challenge
       if (AppState.timeouts.feedback) {
@@ -676,9 +935,222 @@
     },
     
     /**
+     * Pause the current practice session
+     */
+    pausePractice() {
+      if (!AppState.get('practice.isActive') || AppState.get('practice.isPaused')) {
+        return;
+      }
+      
+      console.log('Pausing practice mode...');
+      
+      // Store the current state to resume later
+      const currentState = {
+        currentChallenge: AppState.get('practice.currentChallenge'),
+        waitingForInput: this.waitingForUserInput,
+        stats: JSON.parse(JSON.stringify(AppState.get('practice.stats'))),
+        mode: AppState.get('practice.mode')
+      };
+      
+      // Clear timeouts that would advance to the next challenge
+      AppState.clearTimeouts('all');
+      
+      // Set the pause state
+      AppState.set('practice.isPaused', true);
+      AppState.set('practice.pausedState', currentState);
+      
+      // Stop any playing notes
+      PianoModule.stopAllNotes();
+      
+      // Update UI
+      UIManager.showElement('start-practice');
+      UIManager.hideElement('pause-practice');
+      UIManager.hideElement('stop-practice');
+      
+      // Show the View Practice Sessions button during pause
+      UIManager.showElement('view-practice-sessions');
+      
+      // Change the start button text to "Resume Practice"
+      const startButton = document.getElementById('start-practice');
+      if (startButton) {
+        startButton.textContent = 'Resume Practice';
+      }
+      
+      // Extract current chord or scale info for display
+      const lastPlayedInfo = this.extractLastPlayedInfo();
+      
+      // Update challenge display to show paused state and last played chord/scale
+      if (lastPlayedInfo) {
+        UIManager.updateChallengeDisplay(`Practice Paused - Last ${currentState.mode === 'chord' ? 'Chord' : 'Scale'} Played: ${lastPlayedInfo}`);
+      } else {
+        UIManager.updateChallengeDisplay('Practice Paused - Press Resume to continue');
+      }
+      
+      // Show info message
+      UIManager.showFeedback('Practice paused. You can add the current chord to the Song Builder.', 'info');
+      
+      // Show Song Builder panel
+      document.getElementById('progression-panel').style.display = 'block';
+      document.getElementById('progression-panel').classList.add('visible');
+      
+      // If this is a chord challenge, extract the root and chord type for easy addition
+      this.extractCurrentChallengeForSongBuilder();
+    },
+    
+    /**
+     * Extract information about the last played chord or scale
+     * @returns {string|null} Information about the last played chord or scale, or null if not available
+     */
+    extractLastPlayedInfo() {
+      const challengeDisplay = document.getElementById('challenge-display');
+      if (!challengeDisplay) return null;
+      
+      const challengeText = challengeDisplay.textContent || '';
+      
+      // Check if this is a chord challenge
+      const chordMatch = challengeText.match(/Play the ([A-G]#?b?) ([a-zA-Z0-9_]+) Chord/i);
+      if (chordMatch && chordMatch.length === 3) {
+        return `${chordMatch[1]} ${chordMatch[2]}`;
+      }
+      
+      // Check if this is a scale challenge
+      const scaleMatch = challengeText.match(/Play the ([A-G]#?b?) ([a-zA-Z0-9_\s]+) Scale/i);
+      if (scaleMatch && scaleMatch.length === 3) {
+        return `${scaleMatch[1]} ${scaleMatch[2]}`;
+      }
+      
+      return null;
+    },
+    
+    /**
+     * Extract information about the current chord challenge to make it easier to add to the Song Builder
+     */
+    extractCurrentChallengeForSongBuilder() {
+      const practiceMode = AppState.get('practice.mode');
+      if (practiceMode !== 'chord') {
+        return; // Only applicable for chord practice
+      }
+      
+      const currentChallenge = AppState.get('practice.currentChallenge');
+      if (!currentChallenge || currentChallenge.length === 0) {
+        return;
+      }
+      
+      // Try to determine the chord type and root note from the challenge display
+      const challengeDisplay = document.getElementById('challenge-display');
+      if (challengeDisplay) {
+        const challengeText = challengeDisplay.textContent || '';
+        const match = challengeText.match(/Play the ([A-G]#?b?) ([a-zA-Z0-9_]+) Chord/i);
+        
+        if (match && match.length === 3) {
+          const rootNote = match[1];
+          const chordType = match[2].toLowerCase();
+          
+          console.log(`Extracted chord from challenge: ${rootNote} ${chordType}`);
+          
+          // Set the values in the Song Builder UI if possible
+          const rootNoteSelect = document.getElementById('root-note-select');
+          const chordSelect = document.getElementById('chord-select');
+          
+          if (rootNoteSelect) {
+            // Find the closest matching option
+            const options = Array.from(rootNoteSelect.options);
+            const matchingOption = options.find(opt => opt.value === rootNote) || 
+                                   options.find(opt => opt.value.startsWith(rootNote));
+                                   
+            if (matchingOption) {
+              rootNoteSelect.value = matchingOption.value;
+            }
+          }
+          
+          if (chordSelect) {
+            // Find the closest matching option
+            const options = Array.from(chordSelect.options);
+            const matchingOption = options.find(opt => opt.value === chordType) || 
+                                   options.find(opt => opt.value.includes(chordType));
+                                   
+            if (matchingOption) {
+              chordSelect.value = matchingOption.value;
+            }
+          }
+          
+          // Highlight the add-to-section button
+          const addToSectionBtn = document.getElementById('add-to-section');
+          if (addToSectionBtn) {
+            addToSectionBtn.classList.add('highlighted');
+            
+            // Remove highlight after 3 seconds
+            setTimeout(() => {
+              addToSectionBtn.classList.remove('highlighted');
+            }, 3000);
+          }
+        }
+      }
+    },
+    
+    /**
+     * Resume a paused practice session
+     */
+    resumePractice() {
+      if (!AppState.get('practice.isPaused')) {
+        return;
+      }
+      
+      console.log('Resuming practice mode...');
+      
+      // Get the saved state
+      const savedState = AppState.get('practice.pausedState');
+      if (!savedState) {
+        // If no saved state, start fresh
+        this.startPractice();
+        return;
+      }
+      
+      // Restore the state
+      AppState.set('practice.isActive', true);
+      AppState.set('practice.isPaused', false);
+      AppState.set('practice.currentChallenge', savedState.currentChallenge);
+      
+      // Restore the waiting for input flag
+      if (savedState.waitingForInput) {
+        this.markAsWaitingForInput();
+      }
+      
+      // Update UI
+      UIManager.hideElement('start-practice');
+      UIManager.showElement('pause-practice');
+      UIManager.showElement('stop-practice');
+      
+      // Hide the View Practice Sessions button when resuming
+      UIManager.hideElement('view-practice-sessions');
+      
+      // Reset the start button text for next time
+      const startButton = document.getElementById('start-practice');
+      if (startButton) {
+        startButton.textContent = 'Start Practice Mode';
+      }
+      
+      // Show the practice stats panel
+      UIManager.showPracticeStats(true);
+      
+      // Generate a new challenge after a short delay
+      setTimeout(() => {
+        this.generateChallenge();
+      }, 1000);
+      
+      // Show info message
+      UIManager.showFeedback('Practice resumed', 'success');
+    },
+    
+    /**
      * Generate a random practice challenge
      */
     generateChallenge() {
+      console.log('Generating new practice challenge');
+      
+      // Clear all existing timeouts to prevent overlapping challenges
+      AppState.clearTimeouts('all');
+      
       // Clear feedback display
       UIManager.showFeedback('');
       
@@ -731,6 +1203,9 @@
           return;
         }
         
+        // Save the current challenge to AppState
+        AppState.set('practice.currentChallenge', currentChallenge);
+        
         // Format the challenge name
         const scaleName = randomScale.charAt(0).toUpperCase() + 
           randomScale.slice(1).replace(/_/g, ' ');
@@ -739,6 +1214,9 @@
         UIManager.updateChallengeDisplay(
           `Practice: Play the ${randomRoot} ${scaleName} Scale`
         );
+        
+        // Log this challenge
+        this.logChallenge('scale', `${randomRoot} ${scaleName} Scale`, currentChallenge);
         
         // Get difficulty settings
         const difficulty = AppState.get('practice.config.difficulty');
@@ -787,8 +1265,39 @@
         const chordPatterns = AppState.get('patterns.chords');
         const chordNames = Object.keys(chordPatterns);
         
-        // Select a random chord
-        const randomChord = chordNames[Math.floor(Math.random() * chordNames.length)];
+        // Select a random chord that's not the same as the last one
+        let randomChord;
+        let attempts = 0;
+        const maxAttempts = 5; // Prevent potential infinite loops
+        
+        do {
+          // Get a random chord from the available chord types
+          randomChord = chordNames[Math.floor(Math.random() * chordNames.length)];
+          attempts++;
+          
+          // If we've tried too many times, just use what we have to avoid an infinite loop
+          if (attempts >= maxAttempts) {
+            console.log('Max attempts reached, using current chord selection');
+            break;
+          }
+          
+        } while (
+          // Avoid repeating the same chord type or recent chord types
+          (this.lastChordType === randomChord || this.recentChordTypes.includes(randomChord)) && 
+          chordNames.length > this.maxRecentChords
+        );
+        
+        // Update the tracking for chord types
+        this.lastChordType = randomChord;
+        
+        // Add to recent chords and maintain the list size
+        this.recentChordTypes.push(randomChord);
+        if (this.recentChordTypes.length > this.maxRecentChords) {
+          this.recentChordTypes.shift(); // Remove the oldest chord
+        }
+        
+        console.log(`Selected chord type: ${randomChord} (Previous chords: ${this.recentChordTypes.join(', ')})`);
+        
         const chordPattern = chordPatterns[randomChord];
         
         // Calculate notes for this chord
@@ -800,10 +1309,16 @@
           return;
         }
         
+        // Save the current challenge to AppState
+        AppState.set('practice.currentChallenge', currentChallenge);
+        
         // Update challenge display
         UIManager.updateChallengeDisplay(
           `Practice: Play the ${randomRoot} ${randomChord} Chord`
         );
+        
+        // Log this challenge
+        this.logChallenge('chord', `${randomRoot} ${randomChord} Chord`, currentChallenge);
         
         // Get difficulty settings
         const difficulty = AppState.get('practice.config.difficulty');
@@ -848,14 +1363,9 @@
         }, 1500);
         
       } else {
-        UIManager.updateChallengeDisplay('Please select Scale Mode or Chord Mode first');
-        UIManager.showFeedback('Please select a mode first', 'error');
-        AppState.set('practice.isActive', false);
+        console.error('Unknown practice mode:', practiceMode);
         return;
       }
-      
-      // Store the current challenge but be sure to do a fresh array to avoid reference issues
-      AppState.set('practice.currentChallenge', [...currentChallenge]);
       
       // Make sure the practice mode stays active
       AppState.set('practice.isActive', true);
@@ -867,192 +1377,140 @@
      * Retry the current challenge
      */
     retryCurrentChallenge() {
-      // Clear feedback display
-      UIManager.showFeedback('');
+      console.log('Retrying current challenge');
       
-      // Reset played notes
-      AppState.set('practice.playedNotes', []);
-      
-      // Reset waiting for input flag
-      this.clearWaitingForInput();
-      
-      // Get current challenge
+      // Get the current challenge
       const currentChallenge = AppState.get('practice.currentChallenge');
       if (!currentChallenge || currentChallenge.length === 0) {
         console.error('No current challenge to retry');
         return;
       }
       
+      // Clear all existing timeouts to prevent overlapping challenges
+      AppState.clearTimeouts('all');
+      
+      // Reset played notes
+      AppState.set('practice.playedNotes', []);
+      
+      // Reset the waiting for input flag
+      this.clearWaitingForInput();
+      
       // Stop any currently playing notes
       PianoModule.stopAllNotes();
       
-      // Highlight the notes
-      const difficulty = AppState.get('practice.config.difficulty');
-      if (difficulty !== 'expert') {
-        PianoModule.highlightNotes(currentChallenge);
+      // Get the practice mode
+      const practiceMode = AppState.get('practice.mode');
+      
+      // Play the challenge
+      if (practiceMode === 'scale') {
+        // Get duration
+        const scaleDuration = AppState.get('practice.durations.scale');
+        
+        // Play the scale
+        PianoModule.playNoteSequence(currentChallenge, {
+          highlightDuration: scaleDuration,
+          ignoreInPractice: true
+        });
+        
+        // Mark as waiting for input after playing
+        setTimeout(() => {
+          if (AppState.get('practice.isActive')) {
+            this.markAsWaitingForInput();
+          }
+        }, scaleDuration + 500);
+        
+      } else if (practiceMode === 'chord') {
+        // Get duration
+        const chordDuration = AppState.get('practice.durations.chord');
+        
+        // Play the chord
+        PianoModule.playChord(currentChallenge, {
+          duration: chordDuration,
+          ignoreInPractice: true
+        });
+        
+        // Mark as waiting for input after playing
+        setTimeout(() => {
+          if (AppState.get('practice.isActive')) {
+            this.markAsWaitingForInput();
+          }
+        }, chordDuration + 500);
+      } else {
+        console.error('Unknown practice mode:', practiceMode);
+        return;
       }
       
-      // Play the challenge again after a short delay
-      setTimeout(() => {
-        if (AppState.get('practice.isActive')) {
-          const practiceMode = AppState.get('practice.mode');
-          
-          if (practiceMode === 'scale') {
-            const scaleDuration = AppState.get('practice.durations.scale');
-            PianoModule.playNoteSequence(currentChallenge, {
-              highlightDuration: scaleDuration,
-              ignoreInPractice: true
-            }).then(() => {
-              // Mark as waiting for input after demonstration is complete
-              this.markAsWaitingForInput();
-            });
-          } else if (practiceMode === 'chord') {
-            const chordDuration = AppState.get('practice.durations.chord');
-            PianoModule.playChord(currentChallenge, {
-              duration: chordDuration,
-              ignoreInPractice: true
-            }).then(() => {
-              // Mark as waiting for input after demonstration is complete
-              this.markAsWaitingForInput();
-            });
-          }
-        }
-      }, 1000);
-      
-      // Make sure the practice mode stays active
-      AppState.set('practice.isActive', true);
+      // Show feedback message
+      UIManager.showFeedback('Try again...', 'info', 2000);
     },
     
     /**
      * Check if the played notes match the current challenge
      */
     checkPlayedNotes() {
-      // Only check notes if practice is active and waiting for user input
-      if (!AppState.get('practice.isActive') || !this.waitingForUserInput) {
-        console.log('Practice is not active or not waiting for input, skipping note check.');
-        return;
-      }
-
-      // Check if in "unplugged" mode - skip note checking
-      if (AppState.get('practice.config.feedbackMode') === 'unplugged') {
-        console.log('In unplugged mode, skipping note check.');
+      // If not waiting for user input, ignore played notes
+      if (!this.waitingForUserInput) {
+        console.log('Not waiting for user input, ignoring played notes');
         return;
       }
       
+      // Get the current challenge and played notes
       const currentChallenge = AppState.get('practice.currentChallenge');
       const playedNotes = AppState.get('practice.playedNotes');
       
-      // Prevent empty arrays from triggering checks
-      if (!currentChallenge || !currentChallenge.length || !playedNotes || !playedNotes.length) {
+      if (!currentChallenge || !playedNotes) {
+        console.error('Missing current challenge or played notes');
         return;
       }
       
-      console.log('Checking notes - Challenge:', currentChallenge, 'Played:', playedNotes);
+      console.log('Checking played notes:', playedNotes, 'against challenge:', currentChallenge);
       
-      // Check if all challenge notes have been played
-      const allNotesPlayed = currentChallenge.every(note => 
-        playedNotes.some(played => played === note)
-      );
+      // Check if user played the correct notes (order doesn't matter)
+      const practiceMode = AppState.get('practice.mode');
+      let isCorrect = false;
       
-      // Check if any extra notes were played
-      const noExtraNotes = playedNotes.every(played => 
-        currentChallenge.some(note => note === played)
-      );
+      if (practiceMode === 'scale') {
+        // For scales, need to play all notes in any order
+        isCorrect = playedNotes.length >= currentChallenge.length && 
+                   currentChallenge.every(note => playedNotes.includes(note));
+      } else if (practiceMode === 'chord') {
+        // For chords, need to play all notes at once
+        isCorrect = playedNotes.length >= currentChallenge.length && 
+                   currentChallenge.every(note => playedNotes.includes(note));
+      }
       
-      if (allNotesPlayed && noExtraNotes) {
-        // Correct response!
-        console.log('All notes played correctly!');
+      // Clear waiting flag immediately to prevent multiple feedback events
+      this.clearWaitingForInput();
+      
+      if (isCorrect) {
+        console.log('Correct notes played!');
+        
+        // Update stats
         AppState.updatePracticeStats(true);
         
-        // Update UI with stats
-        UIManager.updatePracticeStats(AppState.get('practice.stats'));
+        // Show feedback
+        UIManager.showFeedback('Correct! Well done!', 'success', 2000);
         
-        // Show success feedback
-        UIManager.showFeedback(
-          `Perfect! Well done! Streak: ${AppState.get('practice.stats.currentStreak')}`, 
-          'success'
-        );
-        
-        // No longer waiting for input
-        this.clearWaitingForInput();
-        
-        // Temporarily mark practice as no longer active to prevent additional input during transition
-        AppState.set('practice.isActive', false);
-        
-        // Generate next challenge after delay
+        // Generate a new challenge after a short delay
+        AppState.clearTimeouts('feedback'); // Clear any existing timeouts
         AppState.setFeedbackTimeout(() => {
-          if (document.getElementById('practice-panel').style.display !== 'none') {
-            // Ensure we're reactivating practice mode before generating the next challenge
-            console.log('Generating next challenge');
-            AppState.set('practice.isActive', true);
+          // Make sure practice is still active
+          if (AppState.get('practice.isActive')) {
             this.generateChallenge();
           }
         }, 2000);
-        
-      } else if (allNotesPlayed) {
-        // Partially correct (all required notes played but with extras)
-        console.log('All required notes played but with extras.');
-        // Reset streak
-        AppState.set('practice.stats.currentStreak', 0);
-        UIManager.updatePracticeStats(AppState.get('practice.stats'));
-        
-        // Show warning feedback
-        UIManager.showFeedback("Almost! You played some extra notes. Try again.", 'warning');
-        
-        // No longer waiting for input
-        this.clearWaitingForInput();
-        
-        // Reset played notes and retry the same challenge
-        AppState.setFeedbackTimeout(() => {
-          // Ensure we're still in practice mode
-          if (AppState.get('practice.isActive')) {
-            AppState.set('practice.playedNotes', []);
-            
-            const difficulty = AppState.get('practice.config.difficulty');
-            if (difficulty !== 'expert') {
-              PianoModule.highlightNotes(currentChallenge);
-            }
-            
-            // Play the current challenge again after a short delay
-            setTimeout(() => {
-              if (AppState.get('practice.isActive')) {
-                const practiceMode = AppState.get('practice.mode');
-                
-                if (practiceMode === 'scale') {
-                  const scaleDuration = AppState.get('practice.durations.scale');
-                  PianoModule.playNoteSequence(currentChallenge, {
-                    highlightDuration: scaleDuration,
-                    ignoreInPractice: true
-                  }).then(() => {
-                    this.markAsWaitingForInput();
-                  });
-                } else if (practiceMode === 'chord') {
-                  const chordDuration = AppState.get('practice.durations.chord');
-                  PianoModule.playChord(currentChallenge, {
-                    duration: chordDuration,
-                    ignoreInPractice: true
-                  }).then(() => {
-                    this.markAsWaitingForInput();
-                  });
-                }
-              }
-            }, 1000);
-          }
-        }, 2000);
-        
       } else if (playedNotes.length >= currentChallenge.length) {
-        // Wrong notes and enough of them played
-        console.log('Wrong notes played.');
+        // The user played the wrong combination of notes
+        console.log('Wrong notes played:', playedNotes, 'Expected:', currentChallenge);
+        
+        // Update stats
         AppState.updatePracticeStats(false);
-        UIManager.updatePracticeStats(AppState.get('practice.stats'));
         
-        // Show error feedback
-        UIManager.showFeedback("Not quite right. Let's try again.", 'error');
-        
-        // No longer waiting for input
-        this.clearWaitingForInput();
+        // Show feedback
+        UIManager.showFeedback('Not quite right. Try again!', 'error', 2000);
         
         // Reset played notes and retry the same challenge
+        AppState.clearTimeouts('feedback'); // Clear any existing timeouts
         AppState.setFeedbackTimeout(() => {
           // Make sure practice is still active
           if (AppState.get('practice.isActive')) {
@@ -1061,6 +1519,11 @@
             this.retryCurrentChallenge();
           }
         }, 2000);
+      }
+      // If fewer notes than the challenge, do nothing and wait for more input
+      else {
+        // Re-enable waiting for input since the user is still entering notes
+        this.markAsWaitingForInput();
       }
     },
     
@@ -1272,5 +1735,273 @@
         // Make sure UI Manager also sets up practice UI
         UIManager.setupPracticeModeUI('none');
       }
-    }
+    },
+
+    /**
+     * Show the practice sessions panel
+     */
+    showPracticeSessionsPanel() {
+      // Populate the sessions list
+      this.populateSessionsList();
+      
+      // Hide session details if visible
+      this.hideSessionDetails();
+      
+      // Show the panel
+      const sessionsPanel = document.getElementById('practice-sessions-panel');
+      if (sessionsPanel) {
+        sessionsPanel.style.display = 'block';
+      }
+    },
+    
+    /**
+     * Hide the practice sessions panel
+     */
+    hidePracticeSessionsPanel() {
+      const sessionsPanel = document.getElementById('practice-sessions-panel');
+      if (sessionsPanel) {
+        sessionsPanel.style.display = 'none';
+      }
+    },
+    
+    /**
+     * Populate the sessions list with data from AppState
+     */
+    populateSessionsList() {
+      const sessionsList = document.getElementById('sessions-list');
+      if (!sessionsList) {
+        console.error('Cannot populate sessions list: element not found');
+        return;
+      }
+      
+      // Clear the list
+      sessionsList.innerHTML = '';
+      
+      // Get sessions from AppState
+      const sessions = AppState.get('practice.sessionLogs') || [];
+      console.log(`Populating sessions list with ${sessions.length} sessions`);
+      
+      if (sessions.length === 0) {
+        sessionsList.innerHTML = '<div class="empty-sessions">No practice sessions recorded yet.</div>';
+        return;
+      }
+      
+      try {
+        // Sort sessions by start time (newest first)
+        sessions.sort((a, b) => {
+          // Safely handle date comparison
+          const dateA = a.startTime instanceof Date ? a.startTime : new Date(a.startTime);
+          const dateB = b.startTime instanceof Date ? b.startTime : new Date(b.startTime);
+          return dateB - dateA;
+        });
+        
+        // Populate the list
+        sessions.forEach((session, index) => {
+          try {
+            // Safely convert startTime to a Date object if it's not already
+            const startTime = session.startTime instanceof Date ? 
+              session.startTime : new Date(session.startTime);
+            
+            // Format the date and time
+            const formattedDate = startTime.toLocaleDateString();
+            const formattedTime = startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            const sessionItem = document.createElement('div');
+            sessionItem.className = 'session-item';
+            sessionItem.setAttribute('data-session-id', session.id);
+            
+            // Ensure mode is available, default to "Unknown" if not
+            const mode = session.mode || 'Unknown';
+            
+            // Ensure challenges array exists
+            const challengeCount = session.challenges && Array.isArray(session.challenges) 
+              ? session.challenges.length 
+              : 0;
+            
+            // Construct the session item content
+            sessionItem.innerHTML = `
+              <div class="session-time">${formattedDate} at ${formattedTime}</div>
+              <div class="session-mode">${mode.toUpperCase()} Practice</div>
+              <div class="session-challenges-count">${challengeCount} challenges</div>
+            `;
+            
+            sessionsList.appendChild(sessionItem);
+          } catch (err) {
+            console.error(`Error rendering session ${index}:`, err, session);
+            // Continue with next session instead of breaking the entire list
+          }
+        });
+      } catch (error) {
+        console.error('Error populating sessions list:', error);
+        sessionsList.innerHTML = '<div class="empty-sessions">Error loading practice sessions. Please try again.</div>';
+      }
+    },
+    
+    /**
+     * Show details for a specific session
+     * @param {string} sessionId - ID of the session to display
+     */
+    showSessionDetails(sessionId) {
+      const sessionsList = document.getElementById('sessions-list');
+      const sessionDetails = document.getElementById('session-details');
+      const sessionTitle = document.getElementById('session-title');
+      const sessionChallenges = document.getElementById('session-challenges');
+      
+      if (!sessionsList || !sessionDetails || !sessionTitle || !sessionChallenges) {
+        console.error('Cannot show session details: required elements not found');
+        return;
+      }
+      
+      // Get the session from AppState
+      const sessions = AppState.get('practice.sessionLogs') || [];
+      const session = sessions.find(s => s.id === sessionId);
+      
+      if (!session) {
+        console.error(`Session with ID ${sessionId} not found`);
+        sessionChallenges.innerHTML = '<div class="empty-challenges">Session not found.</div>';
+        return;
+      }
+      
+      try {
+        // Set the session ID on the details panel
+        sessionDetails.setAttribute('data-session-id', sessionId);
+        
+        // Format the session title
+        // Safely convert startTime to a Date object if it's not already
+        const startTime = session.startTime instanceof Date ? 
+          session.startTime : new Date(session.startTime);
+        
+        const formattedDate = startTime.toLocaleDateString();
+        const formattedTime = startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
+        const mode = session.mode || 'Unknown';
+        sessionTitle.textContent = `${mode.toUpperCase()} Practice - ${formattedDate} at ${formattedTime}`;
+        
+        // Clear the challenges list
+        sessionChallenges.innerHTML = '';
+        
+        // Ensure challenges array exists
+        if (!session.challenges || !Array.isArray(session.challenges) || session.challenges.length === 0) {
+          sessionChallenges.innerHTML = '<div class="empty-challenges">No challenges recorded in this session.</div>';
+          return;
+        }
+        
+        // Populate the challenges list
+        session.challenges.forEach((challenge, index) => {
+          try {
+            // Safely convert timestamp to a Date object if it's not already
+            const challengeTime = challenge.timestamp instanceof Date ?
+              challenge.timestamp : new Date(challenge.timestamp);
+              
+            const timeStr = challengeTime.toLocaleTimeString([], { 
+              hour: '2-digit', 
+              minute: '2-digit', 
+              second: '2-digit' 
+            });
+            
+            const challengeItem = document.createElement('div');
+            challengeItem.className = 'challenge-item';
+            challengeItem.setAttribute('data-index', index);
+            
+            // Default description if missing
+            const description = challenge.description || `${challenge.type || 'Unknown'} challenge`;
+            
+            // Construct the challenge item content
+            challengeItem.innerHTML = `
+              <div class="challenge-description">${description}</div>
+              <div class="challenge-time">${timeStr}</div>
+            `;
+            
+            sessionChallenges.appendChild(challengeItem);
+          } catch (err) {
+            console.error(`Error rendering challenge ${index}:`, err, challenge);
+            // Continue with next challenge
+          }
+        });
+        
+        // Hide the sessions list and show the details
+        sessionsList.style.display = 'none';
+        sessionDetails.style.display = 'block';
+      } catch (error) {
+        console.error('Error showing session details:', error);
+        sessionChallenges.innerHTML = '<div class="empty-challenges">Error loading challenge details. Please try again.</div>';
+      }
+    },
+    
+    /**
+     * Hide session details and show the sessions list
+     */
+    hideSessionDetails() {
+      const sessionsList = document.getElementById('sessions-list');
+      const sessionDetails = document.getElementById('session-details');
+      
+      if (!sessionsList || !sessionDetails) return;
+      
+      // Show the sessions list and hide the details
+      sessionsList.style.display = 'block';
+      sessionDetails.style.display = 'none';
+    },
+    
+    /**
+     * Play a challenge from a session
+     * @param {string} sessionId - ID of the session
+     * @param {number} challengeIndex - Index of the challenge in the session
+     */
+    playChallenge(sessionId, challengeIndex) {
+      try {
+        // Get the session from AppState
+        const sessions = AppState.get('practice.sessionLogs') || [];
+        const session = sessions.find(s => s.id === sessionId);
+        
+        if (!session) {
+          console.error(`Challenge playback failed: Session ${sessionId} not found`);
+          UIManager.showFeedback('Session not found', 'error');
+          return;
+        }
+        
+        // Check if challenges array is valid
+        if (!session.challenges || !Array.isArray(session.challenges)) {
+          console.error('Challenge playback failed: Invalid challenges array', session);
+          UIManager.showFeedback('Invalid session data', 'error');
+          return;
+        }
+        
+        // Check if challenge index is valid
+        if (challengeIndex < 0 || challengeIndex >= session.challenges.length) {
+          console.error(`Challenge playback failed: Invalid challenge index ${challengeIndex}`);
+          UIManager.showFeedback('Challenge not found', 'error');
+          return;
+        }
+        
+        // Get the challenge
+        const challenge = session.challenges[challengeIndex];
+        
+        // Validate the challenge has notes
+        if (!challenge.notes || !Array.isArray(challenge.notes) || challenge.notes.length === 0) {
+          console.error('Challenge playback failed: No notes to play', challenge);
+          UIManager.showFeedback('No notes to play for this challenge', 'error');
+          return;
+        }
+        
+        // Stop any currently playing notes
+        PianoModule.stopAllNotes();
+        
+        // Play the notes based on challenge type
+        if (challenge.type === 'scale') {
+          PianoModule.playNoteSequence(challenge.notes);
+          // Show feedback
+          UIManager.showFeedback(`Playing: ${challenge.description}`, 'info');
+        } else if (challenge.type === 'chord') {
+          PianoModule.playChord(challenge.notes);
+          // Show feedback
+          UIManager.showFeedback(`Playing: ${challenge.description}`, 'info');
+        } else {
+          console.error(`Unknown challenge type: ${challenge.type}`);
+          UIManager.showFeedback('Unknown challenge type', 'error');
+        }
+      } catch (error) {
+        console.error('Failed to play challenge:', error);
+        UIManager.showFeedback('Error playing challenge', 'error');
+      }
+    },
   }

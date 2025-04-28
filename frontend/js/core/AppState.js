@@ -27,6 +27,8 @@ const AppState = {
     practice: {
       mode: 'none', // 'none', 'scale', 'chord'
       isActive: false,
+      isPaused: false,
+      pausedState: null, // To store the state when practice is paused
       currentChallenge: [],
       playedNotes: [],
       optionsVisible: false,
@@ -37,6 +39,9 @@ const AppState = {
         currentStreak: 0,
         bestStreak: 0
       },
+      // Practice session logs
+      sessionLogs: [],
+      currentSessionId: null,
       // Configuration
       config: {
         difficulty: 'medium', // 'easy', 'medium', 'hard', 'expert'

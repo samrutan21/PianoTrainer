@@ -554,6 +554,9 @@ function setupEventListeners() {
   // Make practice stats panel draggable
   setupPracticeStatsDraggable();
   
+  // Make practice sessions panel draggable
+  setupPracticeSessionsDraggable();
+  
   console.log('Core event listeners setup complete');
 }
 
@@ -667,4 +670,127 @@ function setupPracticeStatsDraggable() {
   document.addEventListener('touchend', onDragEnd);
   
   console.log('Practice stats panel draggable setup complete');
+}
+
+/**
+ * Make the practice sessions panel draggable
+ */
+function setupPracticeSessionsDraggable() {
+  console.log('Setting up practice sessions panel draggable functionality');
+  
+  const sessionsPanel = document.getElementById('practice-sessions-panel');
+  if (!sessionsPanel) {
+    console.warn('Practice sessions panel not found, skipping draggable setup');
+    return;
+  }
+  
+  let isDragging = false;
+  let startX, startY, startLeft, startTop;
+  
+  // Offset positions for the panel relative to the practice panel
+  sessionsPanel.style.transform = 'none'; // Ensure no transformations interfere with positioning
+  
+  // Move the panel outside the practice panel to the document body
+  // This ensures it can be dragged anywhere in the viewport
+  document.body.appendChild(sessionsPanel);
+  
+  // Function to handle mouse/touch down events
+  function onDragStart(e) {
+    // Only start dragging if clicked on the header (to allow scrolling in the content)
+    if (!e.target.closest('.stats-header')) {
+      return;
+    }
+    
+    const event = e.touches ? e.touches[0] : e;
+    isDragging = true;
+    
+    // Calculate starting positions
+    const rect = sessionsPanel.getBoundingClientRect();
+    startX = event.clientX;
+    startY = event.clientY;
+    
+    // Get current position from inline styles or computed styles
+    const computedStyle = window.getComputedStyle(sessionsPanel);
+    startLeft = parseInt(sessionsPanel.style.left || computedStyle.left) || rect.left;
+    startTop = parseInt(sessionsPanel.style.top || computedStyle.top) || rect.top;
+    
+    // Add dragging class for visual feedback
+    sessionsPanel.classList.add('dragging');
+    
+    // Prevent default behavior to avoid text selection, etc.
+    e.preventDefault();
+    
+    console.log('Started dragging practice sessions panel');
+  }
+  
+  // Function to handle mouse/touch move events
+  function onDragMove(e) {
+    if (!isDragging) return;
+    
+    const event = e.touches ? e.touches[0] : e;
+    
+    // Calculate new position
+    const deltaX = event.clientX - startX;
+    const deltaY = event.clientY - startY;
+    
+    // Apply new position
+    sessionsPanel.style.left = `${startLeft + deltaX}px`;
+    sessionsPanel.style.top = `${startTop + deltaY}px`;
+    
+    // Prevent default to avoid scrolling while dragging
+    e.preventDefault();
+  }
+  
+  // Function to handle mouse/touch up events
+  function onDragEnd() {
+    if (!isDragging) return;
+    
+    isDragging = false;
+    sessionsPanel.classList.remove('dragging');
+    
+    console.log('Finished dragging practice sessions panel');
+    
+    // Store position in local storage for persistence
+    try {
+      const position = {
+        left: sessionsPanel.style.left,
+        top: sessionsPanel.style.top
+      };
+      localStorage.setItem('practiceSessionsPanelPosition', JSON.stringify(position));
+      console.log('Saved practice sessions panel position to local storage');
+    } catch (error) {
+      console.warn('Could not save practice sessions panel position to local storage:', error);
+    }
+  }
+  
+  // Restore position from local storage if available
+  try {
+    const savedPosition = localStorage.getItem('practiceSessionsPanelPosition');
+    if (savedPosition) {
+      const position = JSON.parse(savedPosition);
+      sessionsPanel.style.left = position.left;
+      sessionsPanel.style.top = position.top;
+      console.log('Restored practice sessions panel position from local storage');
+    } else {
+      // Default position if not saved before
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      sessionsPanel.style.left = `${viewportWidth / 2 - 150}px`;
+      sessionsPanel.style.top = `${viewportHeight / 2 - 200}px`;
+    }
+  } catch (error) {
+    console.warn('Could not restore practice sessions panel position from local storage:', error);
+  }
+  
+  // Add event listeners
+  sessionsPanel.addEventListener('mousedown', onDragStart);
+  sessionsPanel.addEventListener('touchstart', onDragStart);
+  
+  document.addEventListener('mousemove', onDragMove);
+  document.addEventListener('touchmove', onDragMove, { passive: false });
+  
+  document.addEventListener('mouseup', onDragEnd);
+  document.addEventListener('touchend', onDragEnd);
+  
+  console.log('Practice sessions panel draggable setup complete');
 }

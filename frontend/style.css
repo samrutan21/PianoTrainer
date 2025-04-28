@@ -802,6 +802,19 @@ body {
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
+.control-button.highlighted {
+  animation: pulse 1.5s infinite;
+  box-shadow: 0 0 10px var(--accent-color);
+  background-color: var(--accent-color);
+  color: white;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
 #stop-practice {
   background-color: #ff5252;
   color: white;
@@ -1999,29 +2012,107 @@ body {
 
 .stats-row {
   display: flex;
-  justify-content: space-between;
-  flex-wrap: wrap;
+  justify-content: space-around;
+  margin-top: 10px;
+}
+
+.stats-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 15px;
 }
 
 .stat-item {
   text-align: center;
-  margin: 8px 0;            /* Restore original margin */
-  width: 48%;
+  flex: 1;
 }
 
 .stat-label {
-  font-size: 12px;          /* Restore original font size */
-  color: #00ccff;
-  opacity: 0.8;
-  margin-bottom: 5px;       /* Restore original margin */
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .stat-value {
-  font-size: 22px;          /* Slightly larger than original but not too large */
+  font-size: 24px;
   font-weight: bold;
-  color: #00ff00;
-  text-shadow: 0 0 8px rgba(0, 255, 0, 0.7);
-  padding: 4px 0;           /* Restore original padding */
+  color: #fff;
+  text-shadow: 0 0 5px rgba(0, 255, 255, 0.8);
+  position: relative;
+  display: inline-block;
+  margin-top: 5px;
+}
+
+/* Sessions list and details */
+.sessions-list {
+  max-height: 300px;
+  overflow-y: auto;
+  margin: 10px 0;
+  padding: 0 10px;
+}
+
+.session-item {
+  background-color: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  padding: 10px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.session-item:hover {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.session-time {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.session-mode {
+  font-weight: bold;
+  text-transform: uppercase;
+  font-size: 14px;
+}
+
+.session-challenges-count {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.session-details {
+  padding: 0 10px;
+}
+
+.session-details h3 {
+  text-align: center;
+  margin-bottom: 15px;
+  color: #fff;
+  font-size: 16px;
+}
+
+.challenge-item {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  padding: 8px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.challenge-item:hover {
+  background-color: rgba(0, 0, 0, 0.4);
+}
+
+.challenge-description {
+  font-weight: bold;
+}
+
+.challenge-time {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
 }
 
 /* Optional: Add a digital font if you want */
