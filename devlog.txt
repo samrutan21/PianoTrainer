@@ -9,3 +9,7 @@ Soundfond Library not loading.
 Fix these things first, then move on to developing the YouTube integration and interface. 
 
 Made lots of improvements to the interface. Fix the practice mode panel so that it only says "Chord Mode" and "Scale Mode" upon opening. 
+
+4/27/25
+
+Trying to get the practice logs to save across sessions. Last fix seems to have worked in terms of more practice logs being saved, but now the practice mode itself is all screwy. 

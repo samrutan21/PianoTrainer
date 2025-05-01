@@ -158,6 +158,9 @@ const AppState = {
       // Load saved songs from localStorage
       this.loadSavedSongs();
       
+      // Load saved practice logs from localStorage
+      this.loadSavedPracticeLogs();
+      
       // Initialize piano state's keysPressed as a Set
       if (!this.piano.keysPressed || !(this.piano.keysPressed instanceof Set)) {
         this.piano.keysPressed = new Set();
@@ -327,6 +330,37 @@ const AppState = {
         }
       } catch (e) {
         console.error('AppState: Failed to load songs from localStorage:', e);
+      }
+    },
+    
+    /**
+     * Load practice logs from localStorage
+     */
+    loadSavedPracticeLogs() {
+      try {
+        const savedLogs = localStorage.getItem('piano-app-practice-logs');
+        if (savedLogs) {
+          const sessionLogs = JSON.parse(savedLogs);
+          
+          // Process date strings back to Date objects
+          sessionLogs.forEach(session => {
+            // Convert startTime and endTime strings to Date objects
+            if (session.startTime) session.startTime = new Date(session.startTime);
+            if (session.endTime) session.endTime = new Date(session.endTime);
+            
+            // Convert challenge timestamps to Date objects
+            if (session.challenges && Array.isArray(session.challenges)) {
+              session.challenges.forEach(challenge => {
+                if (challenge.timestamp) challenge.timestamp = new Date(challenge.timestamp);
+              });
+            }
+          });
+          
+          this.practice.sessionLogs = sessionLogs;
+          console.log('AppState: Loaded', sessionLogs.length, 'practice session logs from localStorage');
+        }
+      } catch (e) {
+        console.error('AppState: Failed to load practice session logs from localStorage:', e);
       }
     },
     

@@ -107,6 +107,19 @@ async function initializeApp() {
 document.addEventListener('DOMContentLoaded', () => {
   console.log('DOM content loaded, starting application...');
   initializeApp();
+  
+  // Save practice logs when the page is about to unload
+  window.addEventListener('beforeunload', () => {
+    console.log('Page unloading, saving practice session logs...');
+    if (PracticeModule && typeof PracticeModule.saveSessionLogsToStorage === 'function') {
+      // End current session if active
+      if (AppState.get('practice.isActive')) {
+        PracticeModule.endSessionLog();
+      }
+      // Save logs to storage
+      PracticeModule.saveSessionLogsToStorage();
+    }
+  });
 });
 
 /**
@@ -542,7 +555,8 @@ function setupEventListeners() {
   // Setup audio context resume
   setupAudioContextResume();
   
-  // Setup practice module event listeners
+  // Initialize and setup practice module
+  PracticeModule.init();
   PracticeModule.setupEventListeners();
   
   // Setup song builder event listeners
