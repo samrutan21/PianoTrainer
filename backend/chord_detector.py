@@ -18,31 +18,157 @@ class ChordProgressionDetector:
         }
         
         # Interval structures for different chord types (semitones from root)
-        # For example, Major triad = root + major third (4 semitones) + perfect fifth (7 semitones)
         chord_types = {
+            # Basic Triads - Root Position
             'maj': [0, 4, 7],                  # Major triad (1, 3, 5)
             'min': [0, 3, 7],                  # Minor triad (1, b3, 5)
             'dim': [0, 3, 6],                  # Diminished triad (1, b3, b5)
             'aug': [0, 4, 8],                  # Augmented triad (1, 3, #5)
             'sus2': [0, 2, 7],                 # Suspended 2nd (1, 2, 5)
             'sus4': [0, 5, 7],                 # Suspended 4th (1, 4, 5)
-            '7': [0, 4, 7, 10],                # Dominant 7th (1, 3, 5, b7)
-            'maj7': [0, 4, 7, 11],             # Major 7th (1, 3, 5, 7)
-            'min7': [0, 3, 7, 10],             # Minor 7th (1, b3, 5, b7)
-            'dim7': [0, 3, 6, 9],              # Diminished 7th (1, b3, b5, bb7)
-            'hdim7': [0, 3, 6, 10],            # Half-diminished 7th (1, b3, b5, b7)
-            'minmaj7': [0, 3, 7, 11],          # Minor major 7th (1, b3, 5, 7)
-            'aug7': [0, 4, 8, 10],             # Augmented 7th (1, 3, #5, b7)
-            'add9': [0, 4, 7, 14],             # Add 9 (1, 3, 5, 9)
-            'min9': [0, 3, 7, 10, 14],         # Minor 9th (1, b3, 5, b7, 9)
-            'maj9': [0, 4, 7, 11, 14],         # Major 9th (1, 3, 5, 7, 9)
-            '9': [0, 4, 7, 10, 14],            # Dominant 9th (1, 3, 5, b7, 9)
-            '7sus4': [0, 5, 7, 10],            # 7sus4 (1, 4, 5, b7)
-            'maj6': [0, 4, 7, 9],              # Major 6th (1, 3, 5, 6)
-            'min6': [0, 3, 7, 9],              # Minor 6th (1, b3, 5, 6)
-            '11': [0, 4, 7, 10, 14, 17],       # Dominant 11th (1, 3, 5, b7, 9, 11)
-            'maj11': [0, 4, 7, 11, 14, 17],    # Major 11th (1, 3, 5, 7, 9, 11)
-            'min11': [0, 3, 7, 10, 14, 17],    # Minor 11th (1, b3, 5, b7, 9, 11)
+            
+            # Basic Triads - First Inversion
+            'maj/3': [4, 7, 12],              # Major triad first inversion (3, 5, 1)
+            'min/3': [3, 7, 12],              # Minor triad first inversion (b3, 5, 1)
+            'dim/3': [3, 6, 12],              # Diminished triad first inversion (b3, b5, 1)
+            'aug/3': [4, 8, 12],              # Augmented triad first inversion (3, #5, 1)
+            'sus2/2': [2, 7, 12],             # Suspended 2nd first inversion (2, 5, 1)
+            'sus4/4': [5, 7, 12],             # Suspended 4th first inversion (4, 5, 1)
+            
+            # Basic Triads - Second Inversion
+            'maj/5': [7, 12, 16],             # Major triad second inversion (5, 1, 3)
+            'min/5': [7, 12, 15],             # Minor triad second inversion (5, 1, b3)
+            'dim/5': [6, 12, 15],             # Diminished triad second inversion (b5, 1, b3)
+            'aug/5': [8, 12, 16],             # Augmented triad second inversion (#5, 1, 3)
+            'sus2/5': [7, 12, 14],            # Suspended 2nd second inversion (5, 1, 2)
+            'sus4/5': [7, 12, 17],            # Suspended 4th second inversion (5, 1, 4)
+            
+            # Seventh Chords - Root Position
+            '7': [0, 4, 7, 10],               # Dominant 7th (1, 3, 5, b7)
+            'maj7': [0, 4, 7, 11],            # Major 7th (1, 3, 5, 7)
+            'min7': [0, 3, 7, 10],            # Minor 7th (1, b3, 5, b7)
+            'dim7': [0, 3, 6, 9],             # Diminished 7th (1, b3, b5, bb7)
+            'hdim7': [0, 3, 6, 10],           # Half-diminished 7th (1, b3, b5, b7)
+            'minmaj7': [0, 3, 7, 11],         # Minor major 7th (1, b3, 5, 7)
+            'aug7': [0, 4, 8, 10],            # Augmented 7th (1, 3, #5, b7)
+            'maj7#5': [0, 4, 8, 11],          # Major 7th #5 (1, 3, #5, 7)
+            
+            # Seventh Chords - First Inversion
+            '7/3': [4, 7, 10, 12],            # Dominant 7th first inversion (3, 5, b7, 1)
+            'maj7/3': [4, 7, 11, 12],         # Major 7th first inversion (3, 5, 7, 1)
+            'min7/3': [3, 7, 10, 12],         # Minor 7th first inversion (b3, 5, b7, 1)
+            'dim7/3': [3, 6, 9, 12],          # Diminished 7th first inversion (b3, b5, bb7, 1)
+            'hdim7/3': [3, 6, 10, 12],        # Half-diminished 7th first inversion (b3, b5, b7, 1)
+            'minmaj7/3': [3, 7, 11, 12],      # Minor major 7th first inversion (b3, 5, 7, 1)
+            'aug7/3': [4, 8, 10, 12],         # Augmented 7th first inversion (3, #5, b7, 1)
+            'maj7#5/3': [4, 8, 11, 12],       # Major 7th #5 first inversion (3, #5, 7, 1)
+            
+            # Seventh Chords - Second Inversion
+            '7/5': [7, 10, 12, 16],           # Dominant 7th second inversion (5, b7, 1, 3)
+            'maj7/5': [7, 11, 12, 16],        # Major 7th second inversion (5, 7, 1, 3)
+            'min7/5': [7, 10, 12, 15],        # Minor 7th second inversion (5, b7, 1, b3)
+            'dim7/5': [6, 9, 12, 15],         # Diminished 7th second inversion (b5, bb7, 1, b3)
+            'hdim7/5': [6, 10, 12, 15],       # Half-diminished 7th second inversion (b5, b7, 1, b3)
+            'minmaj7/5': [7, 11, 12, 15],     # Minor major 7th second inversion (5, 7, 1, b3)
+            'aug7/5': [8, 10, 12, 16],        # Augmented 7th second inversion (#5, b7, 1, 3)
+            'maj7#5/5': [8, 11, 12, 16],      # Major 7th #5 second inversion (#5, 7, 1, 3)
+            
+            # Seventh Chords - Third Inversion
+            '7/b7': [10, 12, 16, 19],         # Dominant 7th third inversion (b7, 1, 3, 5)
+            'maj7/7': [11, 12, 16, 19],       # Major 7th third inversion (7, 1, 3, 5)
+            'min7/b7': [10, 12, 15, 19],      # Minor 7th third inversion (b7, 1, b3, 5)
+            'dim7/bb7': [9, 12, 15, 18],      # Diminished 7th third inversion (bb7, 1, b3, b5)
+            'hdim7/b7': [10, 12, 15, 18],     # Half-diminished 7th third inversion (b7, 1, b3, b5)
+            'minmaj7/7': [11, 12, 15, 19],    # Minor major 7th third inversion (7, 1, b3, 5)
+            'aug7/b7': [10, 12, 16, 20],      # Augmented 7th third inversion (b7, 1, 3, #5)
+            'maj7#5/7': [11, 12, 16, 20],     # Major 7th #5 third inversion (7, 1, 3, #5)
+            
+            # Drop Voicings
+            'maj7drop2': [0, 7, 11, 16],      # Major 7th drop 2 (1, 5, 7, 3)
+            'min7drop2': [0, 7, 10, 15],      # Minor 7th drop 2 (1, 5, b7, b3)
+            '7drop2': [0, 7, 10, 16],         # Dominant 7th drop 2 (1, 5, b7, 3)
+            'maj7drop3': [0, 4, 11, 19],      # Major 7th drop 3 (1, 3, 7, 5)
+            'min7drop3': [0, 3, 10, 19],      # Minor 7th drop 3 (1, b3, b7, 5)
+            '7drop3': [0, 4, 10, 19],         # Dominant 7th drop 3 (1, 3, b7, 5)
+            
+            # Spread Voicings
+            'maj7spread': [0, 7, 11, 19],     # Major 7th spread (1, 5, 7, 3)
+            'min7spread': [0, 7, 10, 19],     # Minor 7th spread (1, 5, b7, 3)
+            '7spread': [0, 7, 10, 19],        # Dominant 7th spread (1, 5, b7, 3)
+            
+            # Quartal Voicings
+            'quartal': [0, 5, 10],            # Quartal chord (1, 4, 7)
+            'quartal7': [0, 5, 10, 15],       # Quartal 7th (1, 4, 7, 10)
+            'quartal9': [0, 5, 10, 15, 20],   # Quartal 9th (1, 4, 7, 10, 13)
+            
+            # Cluster Voicings
+            'cluster': [0, 1, 2],             # Cluster chord (1, b2, 2)
+            'cluster7': [0, 1, 2, 3],         # Cluster 7th (1, b2, 2, b3)
+            'cluster9': [0, 1, 2, 3, 4],      # Cluster 9th (1, b2, 2, b3, 3)
+            
+            # Shell Voicings
+            'shell7': [0, 7, 10],             # Shell dominant 7th (1, 5, b7)
+            'shellmaj7': [0, 7, 11],          # Shell major 7th (1, 5, 7)
+            'shellmin7': [0, 7, 10],          # Shell minor 7th (1, 5, b7)
+            
+            # Upper Structure Triads
+            'ustmaj7': [0, 4, 7, 11, 14, 18], # Upper structure major 7th (1, 3, 5, 7, 9, #11)
+            'ustmin7': [0, 3, 7, 10, 14, 17], # Upper structure minor 7th (1, b3, 5, b7, 9, 11)
+            'ust7': [0, 4, 7, 10, 14, 18],    # Upper structure dominant 7th (1, 3, 5, b7, 9, #11)
+            
+            # Open Voicings
+            'maj7open': [0, 7, 11, 19],       # Major 7th open (1, 5, 7, 3)
+            'min7open': [0, 7, 10, 19],       # Minor 7th open (1, 5, b7, 3)
+            '7open': [0, 7, 10, 19],          # Dominant 7th open (1, 5, b7, 3)
+            
+            # Close Voicings
+            'maj7close': [0, 4, 7, 11],       # Major 7th close (1, 3, 5, 7)
+            'min7close': [0, 3, 7, 10],       # Minor 7th close (1, b3, 5, b7)
+            '7close': [0, 4, 7, 10],          # Dominant 7th close (1, 3, 5, b7)
+            
+            # Rootless Voicings
+            'rootless7': [4, 7, 10, 14],      # Rootless dominant 7th (3, 5, b7, 9)
+            'rootlessmaj7': [4, 7, 11, 14],   # Rootless major 7th (3, 5, 7, 9)
+            'rootlessmin7': [3, 7, 10, 14],   # Rootless minor 7th (b3, 5, b7, 9)
+            
+            # Kenny Barron Voicings
+            'kb7': [0, 4, 7, 10, 14, 17],     # Kenny Barron dominant 7th (1, 3, 5, b7, 9, 11)
+            'kbmaj7': [0, 4, 7, 11, 14, 17],  # Kenny Barron major 7th (1, 3, 5, 7, 9, 11)
+            'kbmin7': [0, 3, 7, 10, 14, 17],  # Kenny Barron minor 7th (1, b3, 5, b7, 9, 11)
+            
+            # Bill Evans Voicings
+            'be7': [0, 4, 7, 10, 14, 18],     # Bill Evans dominant 7th (1, 3, 5, b7, 9, #11)
+            'bemaj7': [0, 4, 7, 11, 14, 18],  # Bill Evans major 7th (1, 3, 5, 7, 9, #11)
+            'bemin7': [0, 3, 7, 10, 14, 18],  # Bill Evans minor 7th (1, b3, 5, b7, 9, #11)
+            
+            # McCoy Tyner Voicings
+            'mt7': [0, 4, 7, 10, 14, 18, 21], # McCoy Tyner dominant 7th (1, 3, 5, b7, 9, #11, 13)
+            'mtmaj7': [0, 4, 7, 11, 14, 18, 21], # McCoy Tyner major 7th (1, 3, 5, 7, 9, #11, 13)
+            'mtmin7': [0, 3, 7, 10, 14, 18, 21], # McCoy Tyner minor 7th (1, b3, 5, b7, 9, #11, 13)
+            
+            # Herbie Hancock Voicings
+            'hh7': [0, 4, 7, 10, 14, 17, 21], # Herbie Hancock dominant 7th (1, 3, 5, b7, 9, 11, 13)
+            'hhmaj7': [0, 4, 7, 11, 14, 17, 21], # Herbie Hancock major 7th (1, 3, 5, 7, 9, 11, 13)
+            'hhmin7': [0, 3, 7, 10, 14, 17, 21], # Herbie Hancock minor 7th (1, b3, 5, b7, 9, 11, 13)
+            
+            # Chick Corea Voicings
+            'cc7': [0, 4, 7, 10, 14, 18, 21], # Chick Corea dominant 7th (1, 3, 5, b7, 9, #11, 13)
+            'ccmaj7': [0, 4, 7, 11, 14, 18, 21], # Chick Corea major 7th (1, 3, 5, 7, 9, #11, 13)
+            'ccmin7': [0, 3, 7, 10, 14, 18, 21], # Chick Corea minor 7th (1, b3, 5, b7, 9, #11, 13)
+            
+            # Modal Voicings
+            'lydian': [0, 4, 7, 11, 14, 18],  # Lydian chord (1, 3, 5, 7, 9, #11)
+            'mixolydian': [0, 4, 7, 10, 14, 17], # Mixolydian chord (1, 3, 5, b7, 9, 11)
+            'dorian': [0, 3, 7, 10, 14, 17],  # Dorian chord (1, b3, 5, b7, 9, 11)
+            'phrygian': [0, 3, 7, 10, 13, 17], # Phrygian chord (1, b3, 5, b7, b9, 11)
+            'locrian': [0, 3, 6, 10, 13, 17], # Locrian chord (1, b3, b5, b7, b9, 11)
+            
+            # Special Voicings
+            'mystic': [0, 4, 6, 7, 11],       # Mystic chord (1, 3, b5, 5, 7)
+            'petrushka': [0, 4, 7, 12, 16, 19], # Petrushka chord (1, 3, 5, 8, 10, 12)
+            'hendrix': [0, 4, 7, 10, 15],     # Hendrix chord (1, 3, 5, b7, #9)
+            'mu': [0, 4, 7, 11, 14],          # Mu chord (1, 3, 5, 7, 9)
+            'so': [0, 4, 7, 10, 14, 17],      # So What chord (1, 3, 5, b7, 9, 11)
         }
         
         templates = {}
@@ -73,181 +199,915 @@ class ChordProgressionDetector:
         # Normalize chord templates
         for key in self.CHORD_TEMPLATES:
             self.CHORD_TEMPLATES[key] = normalize(self.CHORD_TEMPLATES[key].reshape(1, -1), axis=1).flatten()
+            
+        # Configuration parameters
+        self.config = {
+            'chroma_sr': 22050,          # Sample rate for chroma features
+            'hop_length': 512,           # Hop length for chroma features
+            'n_chroma': 12,              # Number of chroma bins
+            'detection_threshold': 0.75,  # Increased from 0.65 for even stricter detection
+            'min_duration_frames': 15,    # Increased from 10 for longer minimum duration
+            'window_size': 9,            # Increased from 7 for better smoothing
+            'similarity_threshold': 0.2,  # Increased from 0.15 for stricter matching
+            'bass_weight': 1.2,          # Reduced from 1.3
+            'harmonic_weight': 1.05,     # Reduced from 1.1
+            'min_chord_duration': 0.8,   # Increased from 0.5 seconds
+            'max_chord_gap': 0.3,        # Increased from 0.2 seconds
+            'cluster_threshold': 0.85,    # Special threshold for cluster chords
+            'min_progression_duration': 2.0,  # Minimum duration for a progression
+        }
+        
+        # Initialize chord complexity map
+        self._init_chord_complexity()
+        
+        # Add training data storage
+        self.training_data = {
+            'known_songs': [],  # List of dictionaries with song info and features
+            'key_weights': {},  # Learned weights for key detection
+            'chord_weights': {}  # Learned weights for chord detection
+        }
+        
+        # Add configuration for training
+        self.training_config = {
+            'min_training_samples': 50,
+            'validation_split': 0.2,
+            'epochs': 100,
+            'batch_size': 32
+        }
+        
+        # Initialize with default weights
+        self._initialize_default_weights()
+    
+    def _init_chord_complexity(self):
+        """Initialize chord complexity mapping"""
+        self.CHORD_COMPLEXITY = {
+            # Basic Triads - Root Position
+            'maj': 1,    # Major triad
+            'min': 1,    # Minor triad
+            'dim': 1,    # Diminished triad
+            'aug': 1,    # Augmented triad
+            'sus2': 1,   # Suspended 2nd
+            'sus4': 1,   # Suspended 4th
+            
+            # Basic Triads - Inversions
+            'maj/3': 2,  # Major triad first inversion
+            'min/3': 2,  # Minor triad first inversion
+            'dim/3': 2,  # Diminished triad first inversion
+            'aug/3': 2,  # Augmented triad first inversion
+            'sus2/2': 2, # Suspended 2nd first inversion
+            'sus4/4': 2, # Suspended 4th first inversion
+            'maj/5': 2,  # Major triad second inversion
+            'min/5': 2,  # Minor triad second inversion
+            'dim/5': 2,  # Diminished triad second inversion
+            'aug/5': 2,  # Augmented triad second inversion
+            'sus2/5': 2, # Suspended 2nd second inversion
+            'sus4/5': 2, # Suspended 4th second inversion
+            
+            # Seventh Chords - Root Position
+            '7': 2,      # Dominant 7th
+            'maj7': 2,   # Major 7th
+            'min7': 2,   # Minor 7th
+            'dim7': 2,   # Diminished 7th
+            'hdim7': 2,  # Half-diminished 7th
+            'minmaj7': 2,# Minor major 7th
+            'aug7': 2,   # Augmented 7th
+            'maj7#5': 2, # Major 7th #5
+            
+            # Seventh Chords - Inversions
+            '7/3': 3,    # Dominant 7th first inversion
+            'maj7/3': 3, # Major 7th first inversion
+            'min7/3': 3, # Minor 7th first inversion
+            'dim7/3': 3, # Diminished 7th first inversion
+            'hdim7/3': 3,# Half-diminished 7th first inversion
+            'minmaj7/3': 3, # Minor major 7th first inversion
+            'aug7/3': 3, # Augmented 7th first inversion
+            'maj7#5/3': 3, # Major 7th #5 first inversion
+            '7/5': 3,    # Dominant 7th second inversion
+            'maj7/5': 3, # Major 7th second inversion
+            'min7/5': 3, # Minor 7th second inversion
+            'dim7/5': 3, # Diminished 7th second inversion
+            'hdim7/5': 3,# Half-diminished 7th second inversion
+            'minmaj7/5': 3, # Minor major 7th second inversion
+            'aug7/5': 3, # Augmented 7th second inversion
+            'maj7#5/5': 3, # Major 7th #5 second inversion
+            '7/b7': 3,   # Dominant 7th third inversion
+            'maj7/7': 3, # Major 7th third inversion
+            'min7/b7': 3,# Minor 7th third inversion
+            'dim7/bb7': 3, # Diminished 7th third inversion
+            'hdim7/b7': 3, # Half-diminished 7th third inversion
+            'minmaj7/7': 3, # Minor major 7th third inversion
+            'aug7/b7': 3, # Augmented 7th third inversion
+            'maj7#5/7': 3, # Major 7th #5 third inversion
+            
+            # Drop Voicings
+            'maj7drop2': 3, # Major 7th drop 2
+            'min7drop2': 3, # Minor 7th drop 2
+            '7drop2': 3,    # Dominant 7th drop 2
+            'maj7drop3': 3, # Major 7th drop 3
+            'min7drop3': 3, # Minor 7th drop 3
+            '7drop3': 3,    # Dominant 7th drop 3
+            
+            # Spread Voicings
+            'maj7spread': 3, # Major 7th spread
+            'min7spread': 3, # Minor 7th spread
+            '7spread': 3,    # Dominant 7th spread
+            
+            # Quartal Voicings
+            'quartal': 2,    # Quartal chord
+            'quartal7': 3,   # Quartal 7th
+            'quartal9': 4,   # Quartal 9th
+            
+            # Cluster Voicings
+            'cluster': 2,    # Cluster chord
+            'cluster7': 3,   # Cluster 7th
+            'cluster9': 4,   # Cluster 9th
+            
+            # Shell Voicings
+            'shell7': 2,     # Shell dominant 7th
+            'shellmaj7': 2,  # Shell major 7th
+            'shellmin7': 2,  # Shell minor 7th
+            
+            # Upper Structure Triads
+            'ustmaj7': 4,    # Upper structure major 7th
+            'ustmin7': 4,    # Upper structure minor 7th
+            'ust7': 4,       # Upper structure dominant 7th
+            
+            # Open Voicings
+            'maj7open': 3,   # Major 7th open
+            'min7open': 3,   # Minor 7th open
+            '7open': 3,      # Dominant 7th open
+            
+            # Close Voicings
+            'maj7close': 2,  # Major 7th close
+            'min7close': 2,  # Minor 7th close
+            '7close': 2,     # Dominant 7th close
+            
+            # Rootless Voicings
+            'rootless7': 3,  # Rootless dominant 7th
+            'rootlessmaj7': 3, # Rootless major 7th
+            'rootlessmin7': 3, # Rootless minor 7th
+            
+            # Jazz Pianist Voicings
+            'kb7': 4,        # Kenny Barron dominant 7th
+            'kbmaj7': 4,     # Kenny Barron major 7th
+            'kbmin7': 4,     # Kenny Barron minor 7th
+            'be7': 4,        # Bill Evans dominant 7th
+            'bemaj7': 4,     # Bill Evans major 7th
+            'bemin7': 4,     # Bill Evans minor 7th
+            'mt7': 5,        # McCoy Tyner dominant 7th
+            'mtmaj7': 5,     # McCoy Tyner major 7th
+            'mtmin7': 5,     # McCoy Tyner minor 7th
+            'hh7': 5,        # Herbie Hancock dominant 7th
+            'hhmaj7': 5,     # Herbie Hancock major 7th
+            'hhmin7': 5,     # Herbie Hancock minor 7th
+            'cc7': 5,        # Chick Corea dominant 7th
+            'ccmaj7': 5,     # Chick Corea major 7th
+            'ccmin7': 5,     # Chick Corea minor 7th
+            
+            # Modal Voicings
+            'lydian': 4,     # Lydian chord
+            'mixolydian': 4, # Mixolydian chord
+            'dorian': 4,     # Dorian chord
+            'phrygian': 4,   # Phrygian chord
+            'locrian': 4,    # Locrian chord
+            
+            # Special Voicings
+            'mystic': 3,     # Mystic chord
+            'petrushka': 4,  # Petrushka chord
+            'hendrix': 3,    # Hendrix chord
+            'mu': 3,         # Mu chord
+            'so': 4          # So What chord
+        }
+    
+    def _initialize_default_weights(self):
+        """Initialize default weights based on music theory"""
+        # Key detection weights
+        self.training_data['key_weights'] = {
+            'chroma_correlation': 0.3,
+            'chord_progression': 0.4,
+            'pitch_class_distribution': 0.3,
+            'minor_key_boost': 1.2  # Boost for minor keys in pop music
+        }
+        
+        # Chord detection weights
+        self.training_data['chord_weights'] = {
+            'template_matching': 0.4,
+            'harmonic_context': 0.3,
+            'temporal_smoothing': 0.3,
+            'cluster_penalty': 0.8  # Penalty for cluster chords
+        }
+    
+    def add_training_sample(self, audio_path, true_key, true_chords):
+        """Add a training sample to the dataset"""
+        try:
+            # Extract features
+            chroma, sr, hop_length = self.extract_chroma_features(audio_path)
+            if chroma is None:
+                return False
+            
+            # Get detected chords
+            detected_chords = self.identify_chords(chroma)
+            time_chords = self.convert_frames_to_time(detected_chords, sr, hop_length)
+            
+            # Calculate features
+            features = {
+                'chroma_correlation': self._calculate_chroma_correlation(chroma),
+                'chord_progression': self._analyze_chord_progressions(time_chords),
+                'pitch_class_distribution': self._calculate_pitch_class_distribution(chroma),
+                'true_key': true_key,
+                'true_chords': true_chords
+            }
+            
+            self.training_data['known_songs'].append(features)
+            return True
+            
+        except Exception as e:
+            print(f"Error adding training sample: {str(e)}")
+            return False
+    
+    def train_models(self):
+        """Train the key and chord detection models"""
+        if len(self.training_data['known_songs']) < self.training_config['min_training_samples']:
+            print(f"Not enough training samples. Need at least {self.training_config['min_training_samples']}")
+            return False
+        
+        try:
+            # Split into training and validation sets
+            np.random.shuffle(self.training_data['known_songs'])
+            split_idx = int(len(self.training_data['known_songs']) * (1 - self.training_config['validation_split']))
+            train_data = self.training_data['known_songs'][:split_idx]
+            val_data = self.training_data['known_songs'][split_idx:]
+            
+            # Train key detection model
+            self._train_key_detection(train_data, val_data)
+            
+            # Train chord detection model
+            self._train_chord_detection(train_data, val_data)
+            
+            return True
+            
+        except Exception as e:
+            print(f"Error training models: {str(e)}")
+            return False
+    
+    def _train_key_detection(self, train_data, val_data):
+        """Train the key detection model using gradient descent"""
+        try:
+            # Initialize weights
+            weights = self.training_data['key_weights'].copy()
+            learning_rate = 0.01
+            best_accuracy = 0
+            
+            for epoch in range(self.training_config['epochs']):
+                # Shuffle training data
+                np.random.shuffle(train_data)
+                
+                # Mini-batch gradient descent
+                for i in range(0, len(train_data), self.training_config['batch_size']):
+                    batch = train_data[i:i + self.training_config['batch_size']]
+                    
+                    # Calculate gradients
+                    gradients = self._calculate_key_gradients(batch, weights)
+                    
+                    # Update weights
+                    for key in weights:
+                        weights[key] -= learning_rate * gradients[key]
+                
+                # Validate
+                accuracy = self._validate_key_detection(val_data, weights)
+                
+                # Update best weights
+                if accuracy > best_accuracy:
+                    best_accuracy = accuracy
+                    self.training_data['key_weights'] = weights.copy()
+                
+                # Adjust learning rate
+                learning_rate *= 0.95
+            
+            print(f"Key detection training complete. Best validation accuracy: {best_accuracy:.2%}")
+            
+        except Exception as e:
+            print(f"Error in key detection training: {str(e)}")
+    
+    def _train_chord_detection(self, train_data, val_data):
+        """Train the chord detection model using gradient descent"""
+        try:
+            # Initialize weights
+            weights = self.training_data['chord_weights'].copy()
+            learning_rate = 0.01
+            best_accuracy = 0
+            
+            for epoch in range(self.training_config['epochs']):
+                # Shuffle training data
+                np.random.shuffle(train_data)
+                
+                # Mini-batch gradient descent
+                for i in range(0, len(train_data), self.training_config['batch_size']):
+                    batch = train_data[i:i + self.training_config['batch_size']]
+                    
+                    # Calculate gradients
+                    gradients = self._calculate_chord_gradients(batch, weights)
+                    
+                    # Update weights
+                    for key in weights:
+                        weights[key] -= learning_rate * gradients[key]
+                
+                # Validate
+                accuracy = self._validate_chord_detection(val_data, weights)
+                
+                # Update best weights
+                if accuracy > best_accuracy:
+                    best_accuracy = accuracy
+                    self.training_data['chord_weights'] = weights.copy()
+                
+                # Adjust learning rate
+                learning_rate *= 0.95
+            
+            print(f"Chord detection training complete. Best validation accuracy: {best_accuracy:.2%}")
+            
+        except Exception as e:
+            print(f"Error in chord detection training: {str(e)}")
+    
+    def _calculate_key_gradients(self, batch, weights):
+        """Calculate gradients for key detection weights"""
+        gradients = {key: 0 for key in weights}
+        
+        for sample in batch:
+            # Calculate predicted key
+            predicted_key = self._predict_key(sample, weights)
+            
+            # Calculate error
+            error = 1 if predicted_key != sample['true_key'] else 0
+            
+            # Update gradients
+            for key in weights:
+                gradients[key] += error * sample[key]
+        
+        # Average gradients
+        for key in gradients:
+            gradients[key] /= len(batch)
+        
+        return gradients
+    
+    def _calculate_chord_gradients(self, batch, weights):
+        """Calculate gradients for chord detection weights"""
+        gradients = {key: 0 for key in weights}
+        
+        for sample in batch:
+            # Calculate predicted chords
+            predicted_chords = self._predict_chords(sample, weights)
+            
+            # Calculate error
+            error = self._calculate_chord_error(predicted_chords, sample['true_chords'])
+            
+            # Update gradients
+            for key in weights:
+                gradients[key] += error * sample[key]
+        
+        # Average gradients
+        for key in gradients:
+            gradients[key] /= len(batch)
+        
+        return gradients
+    
+    def _validate_key_detection(self, val_data, weights):
+        """Validate key detection accuracy"""
+        correct = 0
+        total = len(val_data)
+        
+        for sample in val_data:
+            predicted_key = self._predict_key(sample, weights)
+            if predicted_key == sample['true_key']:
+                correct += 1
+        
+        return correct / total
+    
+    def _validate_chord_detection(self, val_data, weights):
+        """Validate chord detection accuracy"""
+        correct = 0
+        total = 0
+        
+        for sample in val_data:
+            predicted_chords = self._predict_chords(sample, weights)
+            correct += self._calculate_chord_accuracy(predicted_chords, sample['true_chords'])
+            total += len(sample['true_chords'])
+        
+        return correct / total if total > 0 else 0
+    
+    def _predict_key(self, sample, weights):
+        """Predict key using current weights"""
+        scores = {}
+        
+        # Calculate scores for each key
+        for key in ['C Major', 'C Minor', 'C# Major', 'C# Minor', 'D Major', 'D Minor',
+                   'D# Major', 'D# Minor', 'E Major', 'E Minor', 'F Major', 'F Minor',
+                   'F# Major', 'F# Minor', 'G Major', 'G Minor', 'G# Major', 'G# Minor',
+                   'A Major', 'A Minor', 'A# Major', 'A# Minor', 'B Major', 'B Minor']:
+            score = 0
+            for feature, weight in weights.items():
+                if feature in sample:
+                    score += sample[feature] * weight
+            
+            # Apply minor key boost if applicable
+            if 'Minor' in key:
+                score *= weights['minor_key_boost']
+            
+            scores[key] = score
+        
+        return max(scores.items(), key=lambda x: x[1])[0]
+    
+    def _predict_chords(self, sample, weights):
+        """Predict chords using current weights"""
+        try:
+            # Extract features
+            chroma = sample.get('chroma_correlation', {})
+            progression = sample.get('chord_progression', {})
+            
+            # Calculate scores for each chord template
+            chord_scores = {}
+            for chord_name, template in self.CHORD_TEMPLATES.items():
+                score = 0
+                
+                # Template matching score
+                if 'template_matching' in weights:
+                    score += weights['template_matching'] * np.dot(chroma.get('chroma_mean', np.zeros(12)), template)
+                
+                # Harmonic context score
+                if 'harmonic_context' in weights:
+                    context_score = self._calculate_harmonic_context(chord_name, progression)
+                    score += weights['harmonic_context'] * context_score
+                
+                # Apply cluster penalty
+                if 'cluster' in chord_name and 'cluster_penalty' in weights:
+                    score *= weights['cluster_penalty']
+                
+                chord_scores[chord_name] = score
+            
+            # Select best chord
+            return max(chord_scores.items(), key=lambda x: x[1])[0]
+            
+        except Exception as e:
+            print(f"Error predicting chords: {str(e)}")
+            return "N"
+    
+    def _calculate_harmonic_context(self, chord, progression):
+        """Calculate harmonic context score for a chord"""
+        try:
+            score = 0
+            
+            # Check if chord type appears in progression
+            chord_type = chord.split(':')[1] if ':' in chord else chord
+            type_dist = progression.get('chord_type_distribution', {})
+            if chord_type in type_dist:
+                score += type_dist[chord_type]
+            
+            # Check if root appears in progression
+            root = chord.split(':')[0] if ':' in chord else chord
+            root_dist = progression.get('root_distribution', {})
+            if root in root_dist:
+                score += root_dist[root]
+            
+            return score
+            
+        except:
+            return 0
+    
+    def _calculate_chord_error(self, predicted, true):
+        """Calculate error between predicted and true chords"""
+        try:
+            if predicted == "N" or true == "N":
+                return 1.0
+            
+            # Parse chords
+            pred_root, pred_type = predicted.split(':')
+            true_root, true_type = true.split(':')
+            
+            # Calculate root error
+            root_error = 0 if pred_root == true_root else 1
+            
+            # Calculate type error
+            type_error = 0 if pred_type == true_type else 1
+            
+            # Combine errors
+            return 0.7 * root_error + 0.3 * type_error
+            
+        except:
+            return 1.0
+    
+    def _calculate_chord_accuracy(self, predicted, true):
+        """Calculate accuracy between predicted and true chords"""
+        try:
+            if predicted == "N" or true == "N":
+                return 0
+            
+            # Parse chords
+            pred_root, pred_type = predicted.split(':')
+            true_root, true_type = true.split(':')
+            
+            # Check if both root and type match
+            return 1 if pred_root == true_root and pred_type == true_type else 0
+            
+        except:
+            return 0
+    
+    def _calculate_chroma_correlation(self, chroma):
+        """Calculate chroma correlation features"""
+        try:
+            # Calculate mean chroma vector
+            mean_chroma = np.mean(chroma, axis=1)
+            
+            # Calculate correlation matrix
+            correlation_matrix = np.zeros((12, 12))
+            for i in range(12):
+                for j in range(12):
+                    correlation_matrix[i, j] = np.corrcoef(chroma[i], chroma[j])[0, 1]
+            
+            # Extract important features
+            features = {
+                'chroma_mean': mean_chroma.tolist(),
+                'chroma_std': np.std(chroma, axis=1).tolist(),
+                'chroma_correlation': correlation_matrix.flatten().tolist(),
+                'chroma_entropy': self._calculate_entropy(mean_chroma),
+                'chroma_peaks': self._find_peaks(mean_chroma)
+            }
+            
+            return features
+            
+        except Exception as e:
+            print(f"Error calculating chroma correlation: {str(e)}")
+            return {}
+    
+    def _analyze_chord_progressions(self, chords):
+        """Analyze chord progression features"""
+        try:
+            if not chords:
+                return {}
+            
+            # Extract chord types and roots
+            chord_types = []
+            chord_roots = []
+            durations = []
+            
+            for chord_info in chords:
+                if chord_info['chord'] == "N":
+                    continue
+                    
+                try:
+                    root, chord_type = chord_info['chord'].split(':')
+                    chord_types.append(chord_type)
+                    chord_roots.append(root)
+                    durations.append(chord_info['duration'])
+                except:
+                    continue
+            
+            # Calculate features
+            features = {
+                'chord_type_distribution': self._calculate_distribution(chord_types),
+                'root_distribution': self._calculate_distribution(chord_roots),
+                'avg_duration': np.mean(durations) if durations else 0,
+                'duration_std': np.std(durations) if durations else 0,
+                'chord_transitions': self._analyze_transitions(chord_types),
+                'root_transitions': self._analyze_transitions(chord_roots)
+            }
+            
+            return features
+            
+        except Exception as e:
+            print(f"Error analyzing chord progressions: {str(e)}")
+            return {}
+    
+    def _calculate_pitch_class_distribution(self, chroma):
+        """Calculate pitch class distribution features"""
+        try:
+            # Calculate mean and variance for each pitch class
+            mean_chroma = np.mean(chroma, axis=1)
+            var_chroma = np.var(chroma, axis=1)
+            
+            # Calculate relative strength
+            strength = mean_chroma / np.sum(mean_chroma) if np.sum(mean_chroma) > 0 else np.ones(12) / 12
+            
+            # Calculate stability
+            stability = 1 / (1 + var_chroma)
+            
+            # Calculate entropy
+            entropy = self._calculate_entropy(strength)
+            
+            # Find peaks
+            peaks = self._find_peaks(strength)
+            
+            features = {
+                'pitch_strength': strength.tolist(),
+                'pitch_stability': stability.tolist(),
+                'pitch_entropy': entropy,
+                'pitch_peaks': peaks,
+                'pitch_contrast': np.max(strength) - np.min(strength)
+            }
+            
+            return features
+            
+        except Exception as e:
+            print(f"Error calculating pitch class distribution: {str(e)}")
+            return {}
+    
+    def _calculate_entropy(self, distribution):
+        """Calculate entropy of a probability distribution"""
+        try:
+            # Remove zeros to avoid log(0)
+            distribution = distribution[distribution > 0]
+            return -np.sum(distribution * np.log2(distribution))
+        except:
+            return 0
+    
+    def _find_peaks(self, signal):
+        """Find peaks in a signal"""
+        try:
+            peaks = []
+            for i in range(1, len(signal) - 1):
+                if signal[i] > signal[i-1] and signal[i] > signal[i+1]:
+                    peaks.append(i)
+            return peaks
+        except:
+            return []
+    
+    def _calculate_distribution(self, items):
+        """Calculate distribution of items"""
+        try:
+            counts = {}
+            total = len(items)
+            for item in items:
+                counts[item] = counts.get(item, 0) + 1
+            
+            return {k: v/total for k, v in counts.items()}
+        except:
+            return {}
+    
+    def _analyze_transitions(self, sequence):
+        """Analyze transitions in a sequence"""
+        try:
+            transitions = {}
+            for i in range(len(sequence) - 1):
+                transition = f"{sequence[i]}-{sequence[i+1]}"
+                transitions[transition] = transitions.get(transition, 0) + 1
+            
+            # Normalize
+            total = sum(transitions.values())
+            return {k: v/total for k, v in transitions.items()} if total > 0 else {}
+        except:
+            return {}
     
     def download_youtube_audio(self, url, output_path=None):
-        """Download audio from a YouTube video"""
+        """Download audio from a YouTube video using yt-dlp"""
         print(f"Downloading audio from {url}...")
         try:
-            # Create a YouTube object
-            yt = pytube.YouTube(url)
+            import yt_dlp
+            import os
             
-            # Get the audio stream
-            audio_stream = yt.streams.filter(only_audio=True).first()
+            # Set up yt-dlp options
+            ydl_opts = {
+                'format': 'bestaudio/best',
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                    'preferredquality': '192',
+                }],
+                'outtmpl': output_path if output_path else '%(id)s.%(ext)s',
+                'quiet': True,
+                'no_warnings': True,
+            }
             
             # Download the audio
-            if output_path is None:
-                # Create a temporary file if no output path is specified
-                output_path = tempfile.mktemp(suffix='.mp4')
-            
-            audio_stream.download(filename=output_path)
-            print(f"Audio downloaded to {output_path}")
-            return output_path
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                downloaded_file = ydl.prepare_filename(info)
+                
+                # Get the actual MP3 file path
+                mp3_file = os.path.splitext(downloaded_file)[0] + '.mp3'
+                print(f"Audio downloaded to {mp3_file}")
+                return mp3_file
+                
         except Exception as e:
-            print(f"Error downloading YouTube video: {e}")
+            print(f"Error downloading YouTube video: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def extract_chroma_features(self, audio_path, sr=22050, hop_length=512, n_chroma=12):
         """Extract chromagram features from audio file"""
         print("Extracting chroma features...")
-        # Load audio
-        y, sr = librosa.load(audio_path, sr=sr)
-        
-        # Apply harmonic-percussive source separation to isolate harmonic content
-        y_harmonic, _ = librosa.effects.hpss(y)
-        
-        # Compute constant-Q transform (better frequency resolution for music)
-        C = np.abs(librosa.cqt(y_harmonic, sr=sr, hop_length=hop_length, 
-                              fmin=librosa.note_to_hz('C1'), 
-                              n_bins=96, bins_per_octave=12))
-        
-        # Compute chromagram using CQT (normalized energy for each pitch class)
-        # Using CQT-based chroma for better handling of harmonics
-        chroma = librosa.feature.chroma_cqt(C=C, sr=sr, hop_length=hop_length, n_chroma=n_chroma)
-        
-        # Apply additional pre-processing:
-        # 1. Non-linear mapping to enhance strong activations
-        chroma = np.power(chroma, 2)
-        
-        # 2. Apply smoothing filter to reduce noise and transients
-        chroma_smoothed = np.zeros_like(chroma)
-        for i in range(chroma.shape[0]):
-            # Using a wider window for smoothing to better track chord changes
-            chroma_smoothed[i] = savgol_filter(chroma[i], 15, 3)
-        
-        # 3. Normalize each frame
-        for j in range(chroma_smoothed.shape[1]):
-            if np.sum(chroma_smoothed[:, j]) > 0:
-                chroma_smoothed[:, j] = chroma_smoothed[:, j] / np.sum(chroma_smoothed[:, j])
-        
-        return chroma_smoothed, sr, hop_length
+        try:
+            # Load audio with error handling
+            try:
+                y, sr = librosa.load(audio_path, sr=sr)
+            except Exception as e:
+                print(f"Error loading audio with librosa: {str(e)}")
+                # Try alternative loading method
+                import soundfile as sf
+                y, sr = sf.read(audio_path)
+                if len(y.shape) > 1:  # If stereo, convert to mono
+                    y = y.mean(axis=1)
+            
+            # Apply harmonic-percussive source separation to isolate harmonic content
+            y_harmonic, _ = librosa.effects.hpss(y)
+            
+            # Compute constant-Q transform (better frequency resolution for music)
+            C = np.abs(librosa.cqt(y_harmonic, sr=sr, hop_length=hop_length, 
+                                  fmin=librosa.note_to_hz('C1'), 
+                                  n_bins=96, bins_per_octave=12))
+            
+            # Compute chromagram using CQT (normalized energy for each pitch class)
+            chroma = librosa.feature.chroma_cqt(C=C, sr=sr, hop_length=hop_length, n_chroma=n_chroma)
+            
+            # Apply additional pre-processing:
+            # 1. Non-linear mapping to enhance strong activations
+            chroma = np.power(chroma, 2)
+            
+            # 2. Apply smoothing filter to reduce noise and transients
+            chroma_smoothed = np.zeros_like(chroma)
+            for i in range(chroma.shape[0]):
+                chroma_smoothed[i] = savgol_filter(chroma[i], 15, 3)
+            
+            # 3. Normalize each frame
+            for j in range(chroma_smoothed.shape[1]):
+                if np.sum(chroma_smoothed[:, j]) > 0:
+                    chroma_smoothed[:, j] = chroma_smoothed[:, j] / np.sum(chroma_smoothed[:, j])
+            
+            return chroma_smoothed, sr, hop_length
+            
+        except Exception as e:
+            print(f"Error extracting chroma features: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return None, None, None
     
-    def identify_chords(self, chroma, threshold=0.5, min_duration_frames=5):
-        """Identify chords from chroma features using an enhanced algorithm"""
-        print("Identifying chords...")
+    def identify_chords(self, chroma, threshold=None, min_duration_frames=None):
+        """
+        Identify chords from chroma features using an enhanced algorithm.
+        
+        Args:
+            chroma: Chroma features matrix
+            threshold: Optional override for detection threshold
+            min_duration_frames: Optional override for minimum duration
+            
+        Returns:
+            List of tuples (chord_name, duration_in_frames)
+        """
+        # Use config values if parameters not provided
+        threshold = threshold or self.config['detection_threshold']
+        min_duration_frames = min_duration_frames or self.config['min_duration_frames']
+        
         num_frames = chroma.shape[1]
         chord_sequence = []
         current_chord = None
         current_chord_duration = 0
         
-        # Collect chord classification decisions for a sliding window
-        window_size = 5  # frames
+        # Initialize sliding window buffer
+        window_size = self.config['window_size']
         chord_buffer = []
         
         for frame in range(num_frames):
-            # Get chroma vector for current frame
-            chroma_vector = chroma[:, frame]
+            # Get enhanced chroma vector for current frame
+            chroma_vector = self._enhance_chroma_vector(chroma[:, frame])
             
-            # Dictionary to store similarity scores for all chord types
-            similarities = {}
+            # Get chord candidates with similarity scores
+            chord_candidates = self._get_chord_candidates(chroma_vector, threshold)
             
-            # Calculate similarity for every chord template
-            for chord_name, chord_template in self.CHORD_TEMPLATES.items():
-                # Calculate cosine similarity between chroma and chord template
-                similarity = np.dot(chroma_vector, chord_template)
-                similarities[chord_name] = similarity
+            # Select best chord using context and rules
+            best_chord = self._select_best_chord(chord_candidates)
             
-            # Sort chords by similarity score
-            sorted_chords = sorted(similarities.items(), key=lambda x: x[1], reverse=True)
-            
-            # Get top 3 chord candidates
-            top_chords = sorted_chords[:3]
-            
-            # Check if the best match exceeds the threshold
-            if top_chords[0][1] > threshold:
-                best_chord = top_chords[0][0]
-                
-                # Check if the top chord is significantly better than the second best
-                if len(top_chords) > 1 and (top_chords[0][1] - top_chords[1][1]) < 0.1:
-                    # Chords are too close, need additional context to decide
-                    # Prefer simpler chords (fewer notes) in ambiguous cases
-                    simpler_chord = self._prefer_simpler_chord([c[0] for c in top_chords[:2]])
-                    if simpler_chord:
-                        best_chord = simpler_chord
-            else:
-                best_chord = "N"  # No chord
-            
-            # Add to sliding window buffer
+            # Update sliding window buffer
             chord_buffer.append(best_chord)
             if len(chord_buffer) > window_size:
                 chord_buffer.pop(0)
             
-            # Use majority voting to smooth out chord detection
+            # Apply temporal smoothing
             if len(chord_buffer) == window_size:
-                from collections import Counter
-                chord_counts = Counter(chord_buffer)
-                most_common_chord = chord_counts.most_common(1)[0][0]
+                smoothed_chord = self._apply_temporal_smoothing(chord_buffer)
                 
-                # If current chord changes or this is the first frame
-                if most_common_chord != current_chord:
-                    # Add the previous chord to the sequence if it lasted long enough
+                # Update chord sequence
+                if smoothed_chord != current_chord:
                     if current_chord is not None and current_chord_duration >= min_duration_frames:
-                        chord_sequence.append((current_chord, current_chord_duration))
-                    
-                    # Start a new chord
-                    current_chord = most_common_chord
+                        # Only add chord if it's not a cluster or if it's a significant duration
+                        if not current_chord.endswith(':cluster') or current_chord_duration >= min_duration_frames * 2:
+                            chord_sequence.append((current_chord, current_chord_duration))
+                    current_chord = smoothed_chord
                     current_chord_duration = 1
                 else:
-                    # Continue the current chord
                     current_chord_duration += 1
         
-        # Process remaining frames in buffer
+        # Add final chord to sequence
         if current_chord is not None and current_chord_duration >= min_duration_frames:
-            chord_sequence.append((current_chord, current_chord_duration))
+            if not current_chord.endswith(':cluster') or current_chord_duration >= min_duration_frames * 2:
+                chord_sequence.append((current_chord, current_chord_duration))
         
         return chord_sequence
-    
+        
+    def _enhance_chroma_vector(self, chroma_vector):
+        """
+        Enhance chroma vector by emphasizing bass and harmonic content.
+        
+        Args:
+            chroma_vector: Original chroma vector
+            
+        Returns:
+            Enhanced chroma vector
+        """
+        # Create a copy to avoid modifying original
+        enhanced = chroma_vector.copy()
+        
+        # Emphasize bass notes
+        enhanced[0] *= self.config['bass_weight']  # Root note
+        enhanced[4] *= self.config['bass_weight']  # Fifth
+        
+        # Emphasize harmonic content
+        enhanced[7] *= self.config['harmonic_weight']  # Octave
+        
+        # Normalize the enhanced vector
+        return normalize(enhanced.reshape(1, -1), axis=1).flatten()
+        
+    def _get_chord_candidates(self, chroma_vector, threshold):
+        """
+        Get potential chord candidates with similarity scores.
+        
+        Args:
+            chroma_vector: Enhanced chroma vector
+            threshold: Similarity threshold
+            
+        Returns:
+            List of tuples (chord_name, similarity_score)
+        """
+        similarities = {}
+        
+        for chord_name, chord_template in self.CHORD_TEMPLATES.items():
+            similarity = np.dot(chroma_vector, chord_template)
+            
+            # Apply special threshold for cluster chords
+            if chord_name.endswith(':cluster'):
+                if similarity >= self.config['cluster_threshold']:
+                    similarities[chord_name] = similarity
+            else:
+                if similarity >= threshold:
+                    similarities[chord_name] = similarity
+        
+        return sorted(similarities.items(), key=lambda x: x[1], reverse=True)
+        
+    def _select_best_chord(self, chord_candidates):
+        """
+        Select the best chord from candidates using context and rules.
+        
+        Args:
+            chord_candidates: List of (chord_name, similarity_score) tuples
+            
+        Returns:
+            Selected chord name or "N" for no chord
+        """
+        if not chord_candidates:
+            return "N"
+            
+        # Get top candidates
+        top_chords = chord_candidates[:3]
+        
+        # If only one candidate or clear winner, return it
+        if len(top_chords) == 1 or (top_chords[0][1] - top_chords[1][1]) > self.config['similarity_threshold']:
+            return top_chords[0][0]
+            
+        # For ambiguous cases, prefer simpler chords
+        return self._prefer_simpler_chord([c[0] for c in top_chords[:2]])
+        
+    def _apply_temporal_smoothing(self, chord_buffer):
+        """
+        Apply temporal smoothing to chord sequence.
+        
+        Args:
+            chord_buffer: List of recent chord detections
+            
+        Returns:
+            Smoothed chord name
+        """
+        from collections import Counter
+        chord_counts = Counter(chord_buffer)
+        return chord_counts.most_common(1)[0][0]
+        
     def _prefer_simpler_chord(self, chord_candidates):
-        """Choose the simpler chord from candidates (fewer notes is simpler)"""
+        """
+        Choose the simpler chord from candidates based on complexity.
+        
+        Args:
+            chord_candidates: List of chord names
+            
+        Returns:
+            Selected chord name
+        """
         if not chord_candidates:
             return None
-        
-        # Count the number of notes in each chord type
-        chord_complexity = {}
+            
+        # Calculate complexity for each candidate
+        complexities = {}
         for chord in chord_candidates:
             root, chord_type = chord.split(':')
+            complexity = self.CHORD_COMPLEXITY.get(chord_type, 10)
+            complexities[chord] = complexity
             
-            # Complexity ranking (lower is simpler)
-            complexity_map = {
-                'maj': 1,  # Major triad (simplest)
-                'min': 1,  # Minor triad (equally simple)
-                'sus2': 2,
-                'sus4': 2,
-                'dim': 2,
-                'aug': 2,
-                '7': 3,
-                'maj7': 3,
-                'min7': 3,
-                'maj6': 3,
-                'min6': 3,
-                'dim7': 4,
-                'hdim7': 4,
-                'minmaj7': 4,
-                'aug7': 4,
-                'add9': 4,
-                '9': 5,
-                'maj9': 5,
-                'min9': 5,
-                '7sus4': 4,
-                '11': 6,   # Most complex
-                'maj11': 6,
-                'min11': 6
-            }
-            
-            complexity = complexity_map.get(chord_type, 10)  # Default to high complexity if unknown
-            chord_complexity[chord] = complexity
-        
-        # Return the chord with the lowest complexity
-        return min(chord_complexity, key=chord_complexity.get)
+        return min(complexities, key=complexities.get)
     
     def convert_frames_to_time(self, chord_sequence, sr, hop_length):
         """Convert frame-based chord sequence to time-based"""
@@ -296,45 +1156,64 @@ class ChordProgressionDetector:
         if not simplified_sequence:
             return []
         
-        # Count chord transitions
-        transitions = {}
-        for i in range(len(simplified_sequence) - 1):
-            current = simplified_sequence[i]['chord']
-            next_chord = simplified_sequence[i + 1]['chord']
-            
-            if current not in transitions:
-                transitions[current] = {}
-            
-            if next_chord not in transitions[current]:
-                transitions[current][next_chord] = 0
-            
-            transitions[current][next_chord] += 1
+        # Filter out very short chords and merge close ones
+        filtered_sequence = []
+        current_chord = None
+        current_start = None
+        current_end = None
         
-        # Create a Markov chain of chord transitions
-        total_transitions = {}
-        for source, targets in transitions.items():
-            total = sum(targets.values())
-            total_transitions[source] = total
-            for target in targets:
-                transitions[source][target] /= total
+        for chord_info in simplified_sequence:
+            # Skip cluster chords unless they're very long
+            if (chord_info['chord'].endswith(':cluster') and 
+                chord_info['duration'] < self.config['min_progression_duration']):
+                continue
+                
+            if chord_info['duration'] < self.config['min_chord_duration']:
+                continue
+                
+            if current_chord is None:
+                current_chord = chord_info['chord']
+                current_start = chord_info['start_time']
+                current_end = chord_info['end_time']
+            elif (chord_info['chord'] == current_chord and 
+                  chord_info['start_time'] - current_end < self.config['max_chord_gap']):
+                current_end = chord_info['end_time']
+            else:
+                filtered_sequence.append({
+                    'chord': current_chord,
+                    'start_time': current_start,
+                    'end_time': current_end,
+                    'duration': current_end - current_start
+                })
+                current_chord = chord_info['chord']
+                current_start = chord_info['start_time']
+                current_end = chord_info['end_time']
         
-        # Find common chord progressions of different lengths (2, 4, and 8 chords)
-        progression_lengths = [2, 4, 8]
+        if current_chord is not None:
+            filtered_sequence.append({
+                'chord': current_chord,
+                'start_time': current_start,
+                'end_time': current_end,
+                'duration': current_end - current_start
+            })
+        
+        # Find common progressions
+        progression_lengths = [2, 4]  # Reduced from [2, 4, 8] to focus on shorter progressions
         all_progressions = []
         
         for length in progression_lengths:
-            if len(simplified_sequence) <= length:
+            if len(filtered_sequence) <= length:
                 continue
                 
             # Find chord patterns of the current length
             chord_patterns = {}
-            for i in range(len(simplified_sequence) - (length - 1)):
-                pattern = tuple(simplified_sequence[j]['chord'] for j in range(i, i + length))
+            for i in range(len(filtered_sequence) - (length - 1)):
+                pattern = tuple(filtered_sequence[j]['chord'] for j in range(i, i + length))
                 
-                # Skip patterns with "N" (no chord)
-                if "N" in pattern:
+                # Skip patterns with cluster chords
+                if any(chord.endswith(':cluster') for chord in pattern):
                     continue
-                    
+                
                 if pattern not in chord_patterns:
                     chord_patterns[pattern] = 0
                 
@@ -342,32 +1221,28 @@ class ChordProgressionDetector:
             
             # Analyze found patterns
             for pattern, count in chord_patterns.items():
-                if count >= max(2, int(len(simplified_sequence) / (length * 4))):  # Adjust threshold based on length
+                if count >= max(2, int(len(filtered_sequence) / (length * 2))):
                     # Calculate average duration
-                    avg_duration = 0
-                    for chord in pattern:
-                        for chord_info in simplified_sequence:
-                            if chord_info['chord'] == chord:
-                                avg_duration += chord_info['duration']
-                                break
-                    avg_duration /= length
+                    avg_duration = sum(filtered_sequence[i]['duration'] for i in range(len(pattern))) / length
                     
-                    # Detect musical function - Check for common patterns
-                    function = self._analyze_chord_function(pattern)
-                    
-                    all_progressions.append({
-                        'progression': pattern,
-                        'count': count,
-                        'length': length,
-                        'avg_duration': avg_duration,
-                        'function': function
-                    })
+                    # Only include progressions with significant duration
+                    if avg_duration >= self.config['min_progression_duration']:
+                        function = self._analyze_chord_function(pattern)
+                        all_progressions.append({
+                            'progression': pattern,
+                            'count': count,
+                            'length': length,
+                            'avg_duration': avg_duration,
+                            'function': function
+                        })
         
-        # Sort patterns first by count, then by length (preferring shorter patterns)
-        sorted_progressions = sorted(all_progressions, key=lambda x: (x['count'], -x['length']), reverse=True)
+        # Sort patterns by count and length
+        sorted_progressions = sorted(all_progressions, 
+                                  key=lambda x: (x['count'], -x['length']), 
+                                  reverse=True)
         
-        # Return the top progressions (max 8)
-        return sorted_progressions[:8]
+        # Return the top progressions (max 3)
+        return sorted_progressions[:3]
     
     def _analyze_chord_function(self, progression):
         """Analyze the musical function of a chord progression"""
@@ -532,120 +1407,283 @@ class ChordProgressionDetector:
         print("Visualization saved as 'chord_analysis.png'")
     
     def estimate_key(self, chroma, chord_sequence):
-        """Estimate the musical key based on chord distribution and chroma data"""
+        """Advanced key detection using multiple techniques"""
         print("Estimating musical key...")
         
-        # Krumhansl-Schmuckler key-finding algorithm using chroma features
-        # Major and minor key profiles (Krumhansl & Kessler, 1982)
-        major_profile = np.array([6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88])
-        minor_profile = np.array([6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17])
-        
-        # Normalize profiles
-        major_profile = major_profile / np.sum(major_profile)
-        minor_profile = minor_profile / np.sum(minor_profile)
-        
-        # Aggregate chroma features across time
-        chroma_sum = np.sum(chroma, axis=1)
-        chroma_norm = chroma_sum / np.sum(chroma_sum)
-        
-        # Calculate correlation with each possible key
-        key_scores = {}
-        
-        # Test all 12 major and 12 minor keys
-        for i in range(12):  # For each root note
-            # Major key correlation
-            major_corr = np.corrcoef(np.roll(major_profile, i), chroma_norm)[0, 1]
-            # Minor key correlation
-            minor_corr = np.corrcoef(np.roll(minor_profile, i), chroma_norm)[0, 1]
-            
-            # Get note name for this root
-            root_notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-            major_key = f"{root_notes[i]} Major"
-            minor_key = f"{root_notes[i]} Minor"
-            
-            key_scores[major_key] = major_corr
-            key_scores[minor_key] = minor_corr
-        
-        # Now incorporate chord information to improve key estimation
-        chord_weights = {}
-        
-        # Process all chords to build frequency distribution
-        for chord_info in chord_sequence:
-            chord = chord_info['chord']
-            if chord == "N":  # Skip "no chord"
-                continue
+        # 1. Krumhansl-Schmuckler algorithm
+        def krumhansl_schmuckler(chroma_vector):
+            try:
+                major_profile = np.array([6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88])
+                minor_profile = np.array([6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17])
                 
-            if ":" in chord:
-                root, chord_type = chord.split(':')
+                major_profile = major_profile / np.sum(major_profile)
+                minor_profile = minor_profile / np.sum(minor_profile)
                 
-                # Calculate weight based on chord duration
-                weight = chord_info['duration']
-                
-                # Determine likely keys for this chord
-                likely_keys = []
-                
-                # Major chords are strong indicators of major keys
-                if chord_type in ['maj', 'maj7', 'maj6', 'add9', 'maj9']:
-                    # This chord could be I in major key
-                    likely_keys.append(f"{root} Major")
-                    # Or IV in major key
-                    fourth_down = (["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"].index(root) - 5) % 12
-                    likely_keys.append(f"{['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][fourth_down]} Major")
-                    # Or V in major key
-                    fifth_down = (["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"].index(root) - 7) % 12
-                    likely_keys.append(f"{['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][fifth_down]} Major")
-                
-                # Minor chords are strong indicators of minor keys or relative major
-                elif chord_type in ['min', 'min7', 'min6', 'min9']:
-                    # This chord could be i in minor key
-                    likely_keys.append(f"{root} Minor")
-                    # Or ii in major key
-                    second_down = (["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"].index(root) - 2) % 12
-                    likely_keys.append(f"{['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][second_down]} Major")
-                    # Or vi in major key
-                    sixth_up = (["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"].index(root) + 3) % 12
-                    likely_keys.append(f"{['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][sixth_up]} Major")
-                
-                # Dominant 7th chords strongly suggest the key a fifth below
-                elif chord_type in ['7', '9', '11', '7sus4']:
-                    fifth_down = (["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"].index(root) - 7) % 12
-                    likely_keys.append(f"{['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][fifth_down]} Major")
+                scores = {}
+                for i in range(12):
+                    major_corr = np.corrcoef(np.roll(major_profile, i), chroma_vector)[0, 1]
+                    minor_corr = np.corrcoef(np.roll(minor_profile, i), chroma_vector)[0, 1]
                     
-                    # Could also be V of relative minor
-                    relative_minor = (fifth_down + 9) % 12
-                    likely_keys.append(f"{['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][relative_minor]} Minor")
+                    root_notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+                    scores[f"{root_notes[i]} Major"] = major_corr
+                    scores[f"{root_notes[i]} Minor"] = minor_corr
                 
-                # Diminished chords often function as vii in major or minor keys
-                elif chord_type in ['dim', 'dim7', 'hdim7']:
-                    semitone_up = (["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"].index(root) + 1) % 12
-                    likely_keys.append(f"{['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][semitone_up]} Major")
-                    likely_keys.append(f"{['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][semitone_up]} Minor")
-                
-                # Augmented chords are less common but can suggest key centers
-                elif chord_type in ['aug', 'aug7']:
-                    # Could be in several keys, somewhat ambiguous
-                    likely_keys.append(f"{root} Major")
-                
-                # Add weights to all likely keys
-                for key in likely_keys:
-                    if key not in chord_weights:
-                        chord_weights[key] = 0
-                    chord_weights[key] += weight
+                return scores
+            except Exception as e:
+                print(f"Error in Krumhansl-Schmuckler: {str(e)}")
+                return {}
         
-        # Combine key correlation scores with chord-based weights
-        final_scores = {}
-        for key in key_scores:
-            # Normalize and combine both sources of information
-            # Key profile correlation is given 60% weight, chord analysis 40%
-            profile_score = (key_scores[key] + 1) / 2  # Convert correlation (-1 to 1) to range (0 to 1)
-            chord_score = chord_weights.get(key, 0) / (max(chord_weights.values()) if chord_weights else 1)
+        # 2. Temperley-Kostka-Payne algorithm
+        def temperley_kostka_payne(chroma_vector):
+            try:
+                major_profile = np.array([0.748, 0.060, 0.488, 0.082, 0.670, 0.460, 0.096, 0.715, 0.104, 0.366, 0.057, 0.400])
+                minor_profile = np.array([0.712, 0.084, 0.474, 0.618, 0.049, 0.460, 0.105, 0.747, 0.404, 0.067, 0.133, 0.330])
+                
+                scores = {}
+                for i in range(12):
+                    major_score = np.sum(np.roll(major_profile, i) * chroma_vector)
+                    minor_score = np.sum(np.roll(minor_profile, i) * chroma_vector)
+                    
+                    root_notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+                    scores[f"{root_notes[i]} Major"] = major_score
+                    scores[f"{root_notes[i]} Minor"] = minor_score
+                
+                return scores
+            except Exception as e:
+                print(f"Error in Temperley-Kostka-Payne: {str(e)}")
+                return {}
+        
+        # 3. Advanced chord progression analysis
+        def analyze_chord_progressions(chord_sequence):
+            try:
+                # Common pop music progressions
+                pop_progressions = {
+                    'Minor': {
+                        'i-VI-III-VII': 1.0,  # Common in pop music
+                        'i-VII-VI-VII': 0.9,
+                        'i-VI-VII-VI': 0.9,
+                        'i-VI-VII-V': 0.8,
+                        'i-VII-VI-V': 0.8
+                    },
+                    'Major': {
+                        'I-V-vi-IV': 1.0,  # Common in pop music
+                        'I-IV-V-IV': 0.9,
+                        'I-V-IV-V': 0.9,
+                        'I-vi-IV-V': 0.8,
+                        'I-IV-vi-V': 0.8
+                    }
+                }
+                
+                # Analyze chord functions
+                chord_functions = {}
+                for chord_info in chord_sequence:
+                    if chord_info['chord'] == "N":
+                        continue
+                        
+                    try:
+                        root, chord_type = chord_info['chord'].split(':')
+                        duration = chord_info['duration']
+                        
+                        # Determine possible functions
+                        functions = {
+                            'Major': [],
+                            'Minor': []
+                        }
+                        
+                        if chord_type in ['maj', 'maj7', 'maj6']:
+                            # Could be I, IV, or V in major
+                            # Could be III, VI, or VII in minor
+                            functions['Major'] = ['I', 'IV', 'V']
+                            functions['Minor'] = ['III', 'VI', 'VII']
+                        elif chord_type in ['min', 'min7', 'min6']:
+                            # Could be ii, iii, or vi in major
+                            # Could be i, iv, or v in minor
+                            functions['Major'] = ['ii', 'iii', 'vi']
+                            functions['Minor'] = ['i', 'iv', 'v']
+                        elif chord_type in ['7', '9', '11']:
+                            # Usually V in major or V in minor
+                            functions['Major'] = ['V']
+                            functions['Minor'] = ['V']
+                        
+                        for mode in functions:
+                            for function in functions[mode]:
+                                if mode not in chord_functions:
+                                    chord_functions[mode] = {}
+                                if function not in chord_functions[mode]:
+                                    chord_functions[mode][function] = 0
+                                chord_functions[mode][function] += duration
+                    except Exception as e:
+                        print(f"Error processing chord {chord_info['chord']}: {str(e)}")
+                        continue
+                
+                return chord_functions
+            except Exception as e:
+                print(f"Error in chord progression analysis: {str(e)}")
+                return {}
+        
+        # 4. Statistical analysis of chroma features
+        def analyze_chroma_statistics(chroma):
+            try:
+                # Calculate mean and variance for each pitch class
+                mean_chroma = np.mean(chroma, axis=1)
+                var_chroma = np.var(chroma, axis=1)
+                
+                # Calculate relative strength of each pitch class
+                strength = mean_chroma / np.sum(mean_chroma)
+                
+                # Calculate stability (inverse of variance)
+                stability = 1 / (1 + var_chroma)
+                
+                # Combine strength and stability
+                importance = strength * stability
+                
+                # Convert to dictionary format
+                scores = {}
+                root_notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+                for i in range(12):
+                    scores[f"{root_notes[i]} Major"] = importance[i]
+                    scores[f"{root_notes[i]} Minor"] = importance[i]
+                
+                return scores
+            except Exception as e:
+                print(f"Error in chroma statistics: {str(e)}")
+                return {}
+        
+        # 5. Machine learning-based key detection
+        def ml_key_detection(chroma_vector, chord_sequence):
+            try:
+                # Features for ML model
+                features = []
+                
+                # Chroma features
+                features.extend(chroma_vector)
+                
+                # Chord type distribution
+                chord_types = {}
+                for chord_info in chord_sequence:
+                    if chord_info['chord'] == "N":
+                        continue
+                    try:
+                        chord_type = chord_info['chord'].split(':')[1]
+                        if chord_type not in chord_types:
+                            chord_types[chord_type] = 0
+                        chord_types[chord_type] += chord_info['duration']
+                    except Exception as e:
+                        print(f"Error processing chord type: {str(e)}")
+                        continue
+                
+                # Normalize chord type distribution
+                total_duration = sum(chord_types.values())
+                if total_duration > 0:
+                    for chord_type in chord_types:
+                        chord_types[chord_type] /= total_duration
+                
+                # Add chord type features
+                for chord_type in ['maj', 'min', '7', 'maj7', 'min7', 'dim', 'aug', 'sus2', 'sus4']:
+                    features.append(chord_types.get(chord_type, 0))
+                
+                # Calculate key scores based on features
+                scores = {}
+                for i in range(12):
+                    # Calculate major key score
+                    major_score = 0
+                    # Root note weight
+                    major_score += features[i] * 2.0
+                    # Perfect fifth weight
+                    major_score += features[(i + 7) % 12] * 1.5
+                    # Major third weight
+                    major_score += features[(i + 4) % 12] * 1.2
+                    
+                    # Calculate minor key score
+                    minor_score = 0
+                    # Root note weight
+                    minor_score += features[i] * 2.0
+                    # Perfect fifth weight
+                    minor_score += features[(i + 7) % 12] * 1.5
+                    # Minor third weight
+                    minor_score += features[(i + 3) % 12] * 1.2
+                    
+                    root_notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+                    scores[f"{root_notes[i]} Major"] = major_score
+                    scores[f"{root_notes[i]} Minor"] = minor_score
+                
+                return scores
+            except Exception as e:
+                print(f"Error in ML key detection: {str(e)}")
+                return {}
+        
+        # Combine all methods
+        def combine_key_scores(methods_scores):
+            try:
+                final_scores = {}
+                weights = {
+                    'krumhansl': 0.2,
+                    'temperley': 0.2,
+                    'chord_prog': 0.3,
+                    'chroma_stats': 0.1,
+                    'ml': 0.2
+                }
+                
+                # Get all possible keys from the first available method
+                available_keys = None
+                for method in methods_scores.values():
+                    if isinstance(method, dict) and method:
+                        available_keys = list(method.keys())
+                        break
+                
+                if not available_keys:
+                    return {}
+                
+                for key in available_keys:
+                    final_scores[key] = 0
+                    for method, weight in weights.items():
+                        if method in methods_scores and isinstance(methods_scores[method], dict):
+                            final_scores[key] += methods_scores[method].get(key, 0) * weight
+                
+                return final_scores
+            except Exception as e:
+                print(f"Error combining key scores: {str(e)}")
+                return {}
+        
+        try:
+            # Main key detection process
+            # 1. Get chroma vector
+            chroma_vector = np.sum(chroma, axis=1)
+            if np.sum(chroma_vector) > 0:
+                chroma_vector = chroma_vector / np.sum(chroma_vector)
+            else:
+                chroma_vector = np.ones(12) / 12  # Fallback to uniform distribution
             
-            final_scores[key] = 0.6 * profile_score + 0.4 * chord_score
-        
-        # Find the key with the highest score
-        estimated_key = max(final_scores.items(), key=lambda x: x[1])[0]
-        
-        return estimated_key
+            # 2. Run all key detection methods
+            methods_scores = {
+                'krumhansl': krumhansl_schmuckler(chroma_vector),
+                'temperley': temperley_kostka_payne(chroma_vector),
+                'chord_prog': analyze_chord_progressions(chord_sequence),
+                'chroma_stats': analyze_chroma_statistics(chroma),
+                'ml': ml_key_detection(chroma_vector, chord_sequence)
+            }
+            
+            # 3. Combine scores
+            final_scores = combine_key_scores(methods_scores)
+            
+            if not final_scores:
+                return "Unknown Key"
+            
+            # 4. Find the key with the highest score
+            estimated_key = max(final_scores.items(), key=lambda x: x[1])[0]
+            
+            # 5. Final verification
+            if estimated_key.endswith('Major'):
+                root_notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+                relative_minor = f"{root_notes[(root_notes.index(estimated_key.split()[0]) + 9) % 12]} Minor"
+                if relative_minor in final_scores and final_scores[relative_minor] > final_scores[estimated_key] * 0.9:
+                    estimated_key = relative_minor
+            
+            return estimated_key
+            
+        except Exception as e:
+            print(f"Error in key detection: {str(e)}")
+            return "Unknown Key"
         
     def analyze_youtube_video(self, url, visualize=True):
         """Analyze chord progression from YouTube video"""

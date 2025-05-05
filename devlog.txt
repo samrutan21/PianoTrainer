@@ -13,3 +13,7 @@ Made lots of improvements to the interface. Fix the practice mode panel so that 
 4/27/25
 
 Trying to get the practice logs to save across sessions. Last fix seems to have worked in terms of more practice logs being saved, but now the practice mode itself is all screwy. 
+
+5/4/2025 
+Fixed the practice mode. Now plays one at a time. Developing the chord progression detector. have a large dataset of songs with very detailed chord progressions in the train_chord_detector.py. Need to verify that the keys 
+and progressions are correct. Do this manually or by inputing the chords and progressions into other llms to verify. Then integrate it with the back end and the UI. 

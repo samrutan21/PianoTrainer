@@ -674,6 +674,7 @@
       
       // Stop any currently playing notes
       PianoModule.stopAllNotes();
+      AudioEngine.stopAllNotes();
       
       const practiceMode = AppState.get('practice.mode');
       if (practiceMode === 'none') {
@@ -694,7 +695,7 @@
       // Reset practice state
       AppState.set('practice.playedNotes', []);
       AppState.set('practice.currentChallenge', []);
-      AppState.set('practice.isActive', true);
+      AppState.set('practice.isActive', false); // Start inactive
       AppState.set('practice.isPaused', false);
       AppState.set('practice.pausedState', null);
       
@@ -735,8 +736,12 @@
       
       // Generate and play a random challenge after a short delay
       setTimeout(() => {
-        this.generateChallenge();
-      }, 500);
+        // Only proceed if we haven't been stopped or paused
+        if (!AppState.get('practice.isActive') && !AppState.get('practice.isPaused')) {
+          AppState.set('practice.isActive', true);
+          this.generateChallenge();
+        }
+      }, 1000);
     },
     
     /**
@@ -898,6 +903,7 @@
       
       // Stop any playing notes and clear timeouts
       PianoModule.stopAllNotes();
+      AudioEngine.stopAllNotes();
       AppState.clearTimeouts('all');
       
       // Clear challenge display
@@ -961,6 +967,7 @@
       
       // Stop any playing notes
       PianoModule.stopAllNotes();
+      AudioEngine.stopAllNotes();
       
       // Update UI
       UIManager.showElement('start-practice');
@@ -1162,61 +1169,126 @@
       
       // Stop any currently playing notes
       PianoModule.stopAllNotes();
+      AudioEngine.stopAllNotes();
       
-      const practiceMode = AppState.get('practice.mode');
-      
-      // Get root note based on key selection mode
-      let randomRoot;
-      const keySelectionMode = AppState.get('practice.config.keySelection');
-      if (keySelectionMode === 'specific') {
-        const specificKey = AppState.get('practice.config.specificKey');
-        if (specificKey) {
-          randomRoot = specificKey;
+      // Add a small delay to ensure all notes are stopped
+      setTimeout(() => {
+        if (!AppState.get('practice.isActive')) return;
+        
+        const practiceMode = AppState.get('practice.mode');
+        
+        // Get root note based on key selection mode
+        let randomRoot;
+        const keySelectionMode = AppState.get('practice.config.keySelection');
+        if (keySelectionMode === 'specific') {
+          const specificKey = AppState.get('practice.config.specificKey');
+          if (specificKey) {
+            randomRoot = specificKey;
+          } else {
+            // Fallback to random if no specific key is selected
+            const availableRoots = AudioEngine.getUniqueNoteNames();
+            randomRoot = availableRoots[Math.floor(Math.random() * availableRoots.length)];
+          }
         } else {
-          // Fallback to random if no specific key is selected
+          // Random key selection
           const availableRoots = AudioEngine.getUniqueNoteNames();
           randomRoot = availableRoots[Math.floor(Math.random() * availableRoots.length)];
         }
-      } else {
-        // Random key selection
-        const availableRoots = AudioEngine.getUniqueNoteNames();
-        randomRoot = availableRoots[Math.floor(Math.random() * availableRoots.length)];
-      }
-      
-      let currentChallenge = [];
-      
-      if (practiceMode === 'scale') {
-        // Get all scale patterns
-        const scalePatterns = AppState.get('patterns.scales');
-        const scaleNames = Object.keys(scalePatterns);
         
-        // Select a random scale
-        const randomScale = scaleNames[Math.floor(Math.random() * scaleNames.length)];
-        const scalePattern = scalePatterns[randomScale];
+        let currentChallenge = [];
+        let challengeDescription = '';
         
-        // Calculate notes for this scale
-        currentChallenge = this.calculateNotesFromPattern(randomRoot, scalePattern);
-        
-        if (currentChallenge.length === 0) {
-          UIManager.showFeedback('Could not generate a valid scale challenge', 'error');
-          AppState.set('practice.isActive', false);
+        if (practiceMode === 'scale') {
+          // Get all scale patterns
+          const scalePatterns = AppState.get('patterns.scales');
+          const scaleNames = Object.keys(scalePatterns);
+          
+          // Select a random scale
+          const randomScale = scaleNames[Math.floor(Math.random() * scaleNames.length)];
+          const scalePattern = scalePatterns[randomScale];
+          
+          // Calculate notes for this scale
+          currentChallenge = this.calculateNotesFromPattern(randomRoot, scalePattern);
+          
+          if (currentChallenge.length === 0) {
+            UIManager.showFeedback('Could not generate a valid scale challenge', 'error');
+            AppState.set('practice.isActive', false);
+            return;
+          }
+          
+          // Format the challenge name
+          const scaleName = randomScale.charAt(0).toUpperCase() + 
+            randomScale.slice(1).replace(/_/g, ' ');
+          
+          challengeDescription = `Practice: Play the ${randomRoot} ${scaleName} Scale`;
+          
+          // Log this challenge
+          this.logChallenge('scale', `${randomRoot} ${scaleName} Scale`, currentChallenge);
+          
+        } else if (practiceMode === 'chord') {
+          // Get all chord patterns
+          const chordPatterns = AppState.get('patterns.chords');
+          const chordNames = Object.keys(chordPatterns);
+          
+          // Select a random chord that's not the same as the last one
+          let randomChord;
+          let attempts = 0;
+          const maxAttempts = 5; // Prevent potential infinite loops
+          
+          do {
+            // Get a random chord from the available chord types
+            randomChord = chordNames[Math.floor(Math.random() * chordNames.length)];
+            attempts++;
+            
+            // If we've tried too many times, just use what we have to avoid an infinite loop
+            if (attempts >= maxAttempts) {
+              console.log('Max attempts reached, using current chord selection');
+              break;
+            }
+            
+          } while (
+            // Avoid repeating the same chord type or recent chord types
+            (this.lastChordType === randomChord || this.recentChordTypes.includes(randomChord)) && 
+            chordNames.length > this.maxRecentChords
+          );
+          
+          // Update the tracking for chord types
+          this.lastChordType = randomChord;
+          
+          // Add to recent chords and maintain the list size
+          this.recentChordTypes.push(randomChord);
+          if (this.recentChordTypes.length > this.maxRecentChords) {
+            this.recentChordTypes.shift(); // Remove the oldest chord
+          }
+          
+          console.log(`Selected chord type: ${randomChord} (Previous chords: ${this.recentChordTypes.join(', ')})`);
+          
+          const chordPattern = chordPatterns[randomChord];
+          
+          // Calculate notes for this chord
+          currentChallenge = this.calculateNotesFromPattern(randomRoot, chordPattern);
+          
+          if (currentChallenge.length === 0) {
+            UIManager.showFeedback('Could not generate a valid chord challenge', 'error');
+            AppState.set('practice.isActive', false);
+            return;
+          }
+          
+          challengeDescription = `Practice: Play the ${randomRoot} ${randomChord} Chord`;
+          
+          // Log this challenge
+          this.logChallenge('chord', `${randomRoot} ${randomChord} Chord`, currentChallenge);
+          
+        } else {
+          console.error('Unknown practice mode:', practiceMode);
           return;
         }
         
         // Save the current challenge to AppState
         AppState.set('practice.currentChallenge', currentChallenge);
         
-        // Format the challenge name
-        const scaleName = randomScale.charAt(0).toUpperCase() + 
-          randomScale.slice(1).replace(/_/g, ' ');
-        
         // Update challenge display
-        UIManager.updateChallengeDisplay(
-          `Practice: Play the ${randomRoot} ${scaleName} Scale`
-        );
-        
-        // Log this challenge
-        this.logChallenge('scale', `${randomRoot} ${scaleName} Scale`, currentChallenge);
+        UIManager.updateChallengeDisplay(challengeDescription);
         
         // Get difficulty settings
         const difficulty = AppState.get('practice.config.difficulty');
@@ -1229,148 +1301,66 @@
           PianoModule.highlightNotes(currentChallenge, 'hint', displayDuration);
         }
 
-        // Play the scale after a short delay
-        setTimeout(() => {
-          if (AppState.get('practice.isActive')) {
-            const scaleDuration = AppState.get('practice.durations.scale');
-            
-            // Play the sequence multiple times based on difficulty
-            let lastRepetitionEnd = 0;
-            for (let i = 0; i < repetitions; i++) {
-              setTimeout(() => {
-                if (AppState.get('practice.isActive')) {
-                  PianoModule.playNoteSequence(currentChallenge, {
-                    highlightDuration: scaleDuration,
-                    ignoreInPractice: true
-                  });
-                  
-                  // Mark as waiting for input after the last repetition
-                  if (i === repetitions - 1) {
-                    setTimeout(() => {
-                      if (AppState.get('practice.isActive')) {
-                        this.markAsWaitingForInput();
-                      }
-                    }, scaleDuration + 500);
-                  }
-                }
-              }, i * (scaleDuration + 1000)); // Add a 1-second gap between repetitions
-              
-              lastRepetitionEnd = (i + 1) * (scaleDuration + 1000);
-            }
-          }
-        }, 1500);
-        
-      } else if (practiceMode === 'chord') {
-        // Get all chord patterns
-        const chordPatterns = AppState.get('patterns.chords');
-        const chordNames = Object.keys(chordPatterns);
-        
-        // Select a random chord that's not the same as the last one
-        let randomChord;
-        let attempts = 0;
-        const maxAttempts = 5; // Prevent potential infinite loops
-        
-        do {
-          // Get a random chord from the available chord types
-          randomChord = chordNames[Math.floor(Math.random() * chordNames.length)];
-          attempts++;
+        // Play the challenge after a short delay
+        const playChallenge = () => {
+          if (!AppState.get('practice.isActive')) return;
           
-          // If we've tried too many times, just use what we have to avoid an infinite loop
-          if (attempts >= maxAttempts) {
-            console.log('Max attempts reached, using current chord selection');
-            break;
-          }
+          const duration = practiceMode === 'scale' ? 
+            AppState.get('practice.durations.scale') : 
+            AppState.get('practice.durations.chord');
           
-        } while (
-          // Avoid repeating the same chord type or recent chord types
-          (this.lastChordType === randomChord || this.recentChordTypes.includes(randomChord)) && 
-          chordNames.length > this.maxRecentChords
-        );
-        
-        // Update the tracking for chord types
-        this.lastChordType = randomChord;
-        
-        // Add to recent chords and maintain the list size
-        this.recentChordTypes.push(randomChord);
-        if (this.recentChordTypes.length > this.maxRecentChords) {
-          this.recentChordTypes.shift(); // Remove the oldest chord
-        }
-        
-        console.log(`Selected chord type: ${randomChord} (Previous chords: ${this.recentChordTypes.join(', ')})`);
-        
-        const chordPattern = chordPatterns[randomChord];
-        
-        // Calculate notes for this chord
-        currentChallenge = this.calculateNotesFromPattern(randomRoot, chordPattern);
-        
-        if (currentChallenge.length === 0) {
-          UIManager.showFeedback('Could not generate a valid chord challenge', 'error');
-          AppState.set('practice.isActive', false);
-          return;
-        }
-        
-        // Save the current challenge to AppState
-        AppState.set('practice.currentChallenge', currentChallenge);
-        
-        // Update challenge display
-        UIManager.updateChallengeDisplay(
-          `Practice: Play the ${randomRoot} ${randomChord} Chord`
-        );
-        
-        // Log this challenge
-        this.logChallenge('chord', `${randomRoot} ${randomChord} Chord`, currentChallenge);
-        
-        // Get difficulty settings
-        const difficulty = AppState.get('practice.config.difficulty');
-        const displayDuration = AppState.get('practice.config.displayDuration');
-        const repetitions = AppState.get('practice.config.repetitions');
-
-        // Expert mode doesn't show visual hints
-        if (difficulty !== 'expert') {
-          // Highlight the notes
-          PianoModule.highlightNotes(currentChallenge, 'hint', displayDuration);
-        }
-
-        // Play the chord after a short delay
-        setTimeout(() => {
-          if (AppState.get('practice.isActive')) {
-            const chordDuration = AppState.get('practice.durations.chord');
+          // Play the challenge multiple times based on difficulty
+          let currentRepetition = 0;
+          
+          const playNextRepetition = () => {
+            if (!AppState.get('practice.isActive') || currentRepetition >= repetitions) return;
             
-            // Play the chord multiple times based on difficulty
-            let lastRepetitionEnd = 0;
-            for (let i = 0; i < repetitions; i++) {
-              setTimeout(() => {
-                if (AppState.get('practice.isActive')) {
-                  PianoModule.playChord(currentChallenge, {
-                    duration: chordDuration,
-                    ignoreInPractice: true
-                  });
-                  
-                  // Mark as waiting for input after the last repetition
-                  if (i === repetitions - 1) {
-                    setTimeout(() => {
-                      if (AppState.get('practice.isActive')) {
-                        this.markAsWaitingForInput();
-                      }
-                    }, chordDuration + 500);
-                  }
-                }
-              }, i * (chordDuration + 500)); // Add a half-second gap between repetitions
+            // Stop any currently playing notes before starting the next repetition
+            PianoModule.stopAllNotes();
+            AudioEngine.stopAllNotes();
+            
+            // Add a small delay to ensure notes are stopped
+            setTimeout(() => {
+              if (!AppState.get('practice.isActive')) return;
               
-              lastRepetitionEnd = (i + 1) * (chordDuration + 500);
-            }
-          }
-        }, 1500);
+              // Play the challenge
+              if (practiceMode === 'scale') {
+                PianoModule.playNoteSequence(currentChallenge, {
+                  highlightDuration: duration,
+                  ignoreInPractice: true
+                });
+              } else {
+                PianoModule.playChord(currentChallenge, {
+                  duration: duration,
+                  ignoreInPractice: true
+                });
+              }
+              
+              currentRepetition++;
+              
+              // If this was the last repetition, mark as waiting for input
+              if (currentRepetition === repetitions) {
+                setTimeout(() => {
+                  if (AppState.get('practice.isActive')) {
+                    this.markAsWaitingForInput();
+                  }
+                }, duration + 500);
+              } else {
+                // Schedule the next repetition
+                setTimeout(playNextRepetition, duration + 1000);
+              }
+            }, 100);
+          };
+          
+          // Start the sequence
+          playNextRepetition();
+        };
         
-      } else {
-        console.error('Unknown practice mode:', practiceMode);
-        return;
-      }
-      
-      // Make sure the practice mode stays active
-      AppState.set('practice.isActive', true);
-      
-      console.log('Generated challenge:', currentChallenge);
+        // Start the sequence after a short delay
+        setTimeout(playChallenge, 1500);
+        
+        console.log('Generated challenge:', currentChallenge);
+      }, 100);
     },
     
     /**

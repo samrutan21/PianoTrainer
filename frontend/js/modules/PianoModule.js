@@ -547,8 +547,9 @@ const PianoModule = {
         ignoreInPractice = true // Add this flag to prevent demo playback from counting in practice
       } = options;
       
-      // Stop any currently playing notes
+      // Stop any currently playing notes and wait for them to fully stop
       this.stopAllNotes();
+      AudioEngine.stopAllNotes();
       
       // Clear any existing chord timeout
       if (AppState.timeouts.chord !== null) {
@@ -564,59 +565,62 @@ const PianoModule = {
       }
       
       return new Promise((resolve) => {
-        if (ignoreInPractice && AppState.get('practice.isActive')) {
-          // Direct audio playback for demonstration in practice mode
-          const noteObjs = [];
-          
-          // Play each note in the chord
-          notes.forEach(note => {
-            const noteObj = AudioEngine.playNote(note);
-            if (noteObj) {
-              noteObjs.push(noteObj);
-              
-              // Activate the key visually
-              const key = document.querySelector(`[data-note="${note}"]`);
-              if (key) {
-                key.classList.add('active');
-              }
-            }
-          });
-          
-          // Set a timeout to stop the notes
-          AppState.timeouts.chord = setTimeout(() => {
-            // Stop all notes
-            noteObjs.forEach(noteObj => {
-              AudioEngine.stopNote(noteObj);
-            });
+        // Add a small delay to ensure previous notes are fully stopped
+        setTimeout(() => {
+          if (ignoreInPractice && AppState.get('practice.isActive')) {
+            // Direct audio playback for demonstration in practice mode
+            const noteObjs = [];
             
-            // Deactivate all keys
+            // Play each note in the chord
             notes.forEach(note => {
-              const key = document.querySelector(`[data-note="${note}"]`);
-              if (key) {
-                key.classList.remove('active');
+              const noteObj = AudioEngine.playNote(note);
+              if (noteObj) {
+                noteObjs.push(noteObj);
+                
+                // Activate the key visually
+                const key = document.querySelector(`[data-note="${note}"]`);
+                if (key) {
+                  key.classList.add('active');
+                }
               }
             });
             
-            // Restore the original played notes
-            AppState.set('practice.playedNotes', tempPlayedNotes);
-            console.log('Restored played notes after chord demo:', tempPlayedNotes);
+            // Set a timeout to stop the notes
+            AppState.timeouts.chord = setTimeout(() => {
+              // Stop all notes
+              noteObjs.forEach(noteObj => {
+                AudioEngine.stopNote(noteObj);
+              });
+              
+              // Deactivate all keys
+              notes.forEach(note => {
+                const key = document.querySelector(`[data-note="${note}"]`);
+                if (key) {
+                  key.classList.remove('active');
+                }
+              });
+              
+              // Restore the original played notes
+              AppState.set('practice.playedNotes', tempPlayedNotes);
+              console.log('Restored played notes after chord demo:', tempPlayedNotes);
+              
+              resolve();
+            }, duration);
             
-            resolve();
-          }, duration);
-          
-        } else {
-          // Standard playback for non-practice mode
-          // Play each note in the chord
-          notes.forEach(note => {
-            this.playNote(note);
-          });
-          
-          // Set a timeout to stop the notes
-          AppState.timeouts.chord = setTimeout(() => {
-            this.stopAllNotes();
-            resolve();
-          }, duration);
-        }
+          } else {
+            // Standard playback for non-practice mode
+            // Play each note in the chord
+            notes.forEach(note => {
+              this.playNote(note);
+            });
+            
+            // Set a timeout to stop the notes
+            AppState.timeouts.chord = setTimeout(() => {
+              this.stopAllNotes();
+              resolve();
+            }, duration);
+          }
+        }, 50); // Small delay to ensure previous notes are fully stopped
       });
     },
 
