@@ -340,10 +340,7 @@ const AudioEngine = {
     },
     
     /**
-     * Play a note using the current instrument with appropriate fallbacks
-     * @param {string} noteName - Note name with octave (e.g. 'C4')
-     * @param {Object} options - Additional options
-     * @returns {Object} Note object that can be used to stop the note
+     * Enhanced logging for the playNote method in AudioEngine
      */
     playNote(noteName, options = {}) {
       const frequency = this.noteFrequencies[noteName];
@@ -351,6 +348,8 @@ const AudioEngine = {
         console.warn('AudioEngine: Invalid note name or frequency:', noteName);
         return null;
       }
+      
+      console.log(`AudioEngine: Starting to play note: ${noteName} with options:`, options);
       
       // Ensure the audio context is running
       this.ensureContextRunning();
@@ -365,7 +364,7 @@ const AudioEngine = {
           const midiNote = this.noteToMidi(noteName);
           const volume = options.volume || this.masterVolume;
           
-          console.log(`AudioEngine: Playing SoundFont note: ${noteName} (MIDI: ${midiNote}) with instrument: ${currentInstrument}`);
+          console.log(`AudioEngine: Playing SoundFont note: ${noteName} (MIDI: ${midiNote}) with instrument: ${currentInstrument}, volume: ${volume}`);
           const soundfontNote = soundfontInstrument.play(midiNote, this.context.currentTime, { gain: volume });
           
           // Create a note object for tracking
@@ -373,19 +372,23 @@ const AudioEngine = {
             type: 'soundfont',
             noteName: noteName,
             soundfontNote: soundfontNote,
-            stopMethod: () => soundfontNote.stop(this.context.currentTime)
+            stopMethod: () => {
+              console.log(`AudioEngine: Stopping SoundFont note: ${noteName}`);
+              soundfontNote.stop(this.context.currentTime);
+            }
           };
           
           // Add to active notes
           this.activeNotes.push(noteObj);
+          console.log(`AudioEngine: Successfully started note: ${noteName}, total active notes: ${this.activeNotes.length}`);
           
           return noteObj;
         } catch (e) {
-          console.error("AudioEngine: Error playing note with SoundFont", e);
+          console.error(`AudioEngine: Error playing note ${noteName} with SoundFont:`, e);
           // Fall through to oscillator method
         }
       } else {
-        console.warn(`AudioEngine: SoundFont instrument not found: ${currentInstrument}`);
+        console.warn(`AudioEngine: SoundFont instrument not found: ${currentInstrument}, falling back to oscillator`);
       }
       
       // Fallback to oscillator approach
@@ -422,6 +425,7 @@ const AudioEngine = {
           oscillator: oscillator,
           gainNode: gainNode,
           stopMethod: () => {
+            console.log(`AudioEngine: Stopping oscillator note: ${noteName}`);
             gainNode.gain.setValueAtTime(gainNode.gain.value, this.context.currentTime);
             gainNode.gain.exponentialRampToValueAtTime(0.001, this.context.currentTime + 0.02);
             oscillator.stop(this.context.currentTime + 0.03);
@@ -430,17 +434,17 @@ const AudioEngine = {
         
         // Add to active notes
         this.activeNotes.push(noteObj);
+        console.log(`AudioEngine: Successfully started oscillator note: ${noteName}, total active notes: ${this.activeNotes.length}`);
         
         return noteObj;
       } catch (e) {
-        console.error("AudioEngine: Error starting oscillator", e);
+        console.error(`AudioEngine: Error starting oscillator for note ${noteName}:`, e);
         return null;
       }
     },
     
     /**
-     * Stop a specific note
-     * @param {Object} noteObj - Note object returned from playNote
+     * Enhanced logging for the stopNote method in AudioEngine
      */
     stopNote(noteObj) {
       if (!noteObj) {
@@ -449,43 +453,53 @@ const AudioEngine = {
       }
       
       try {
+        const noteName = noteObj.noteName || 'unknown';
+        console.log(`AudioEngine: Stopping note: ${noteName}, type: ${noteObj.type || 'unknown'}`);
+        
         // Call the appropriate stop method
         if (noteObj.stopMethod && typeof noteObj.stopMethod === 'function') {
           noteObj.stopMethod();
         } else if (typeof noteObj.stop === 'function') {
           // Direct SoundFont note object
+          console.log(`AudioEngine: Using direct stop method for note: ${noteName}`);
           noteObj.stop(this.context.currentTime);
         } else {
-          console.warn('AudioEngine: Unknown note object format:', noteObj);
+          console.warn(`AudioEngine: Unknown note object format for note: ${noteName}`, noteObj);
         }
         
         // Remove from active notes
         const index = this.activeNotes.findIndex(n => n === noteObj);
         if (index !== -1) {
           this.activeNotes.splice(index, 1);
+          console.log(`AudioEngine: Successfully removed note from active notes. Remaining: ${this.activeNotes.length}`);
+        } else {
+          console.warn(`AudioEngine: Note not found in active notes array: ${noteName}`);
         }
         
       } catch (e) {
-        console.error("AudioEngine: Error stopping note", e);
+        console.error("AudioEngine: Error stopping note:", e);
       }
     },
     
     /**
-     * Stop all currently playing notes
+     * Enhanced logging for the stopAllNotes method in AudioEngine
      */
     stopAllNotes() {
-      console.log('AudioEngine: Stopping all currently playing notes');
+      console.log(`AudioEngine: Stopping all currently playing notes (${this.activeNotes.length} notes active)`);
       
       // Create a copy of the array to safely iterate while removing
       const notesToStop = [...this.activeNotes];
       
       // Stop each note
-      notesToStop.forEach(noteObj => {
+      notesToStop.forEach((noteObj, index) => {
+        const noteName = noteObj.noteName || 'unknown';
+        console.log(`AudioEngine: Stopping note ${index+1}/${notesToStop.length}: ${noteName}`);
         this.stopNote(noteObj);
       });
       
       // Clear the active notes array
       this.activeNotes = [];
+      console.log('AudioEngine: Active notes array cleared');
     },
     
     /**

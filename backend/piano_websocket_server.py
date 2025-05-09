@@ -8,6 +8,8 @@ import threading
 import traceback
 import logging
 from chord_detector import ChordProgressionDetector
+import uuid
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, 
@@ -20,13 +22,18 @@ class PianoVisualizerServer:
         self.port = port
         self.clients = set()
         self.detector = ChordProgressionDetector()
+        
+        # Try to load trained model
+        if not self.detector.load_model():
+            logger.warning("No trained model found. Using default weights.")
+            
         self.active_detections = {}  # Track ongoing detections by client
         
     async def register(self, websocket):
         """Register a client websocket connection"""
         client_id = id(websocket)
         self.clients.add(websocket)
-        logger.info(f"Client connected: {client_id}")
+        logger.info(f"Client connected: {client_id}, Total clients: {len(self.clients)}")
         return client_id
         
     async def unregister(self, websocket):
@@ -43,66 +50,60 @@ class PianoVisualizerServer:
         
     async def handle_message(self, websocket, message):
         """Handle incoming messages from clients"""
-        client_id = id(websocket)
-        
         try:
             data = json.loads(message)
-            message_type = data.get('type')
+            client_id = id(websocket)
             
-            logger.info(f"Received {message_type} message from client {client_id}")
-            
-            if message_type == 'detection_request':
-                # Process YouTube detection request
-                youtube_url = data.get('url')
+            if data['type'] == 'detect_chords':
+                # Check if there's already an active detection for this URL
+                url = data['url']
                 
-                if not youtube_url:
-                    await self.send_error(websocket, "Missing YouTube URL")
-                    return
+                # Add URL check to prevent duplicate analysis of the same URL
+                if client_id in self.active_detections and 'url' in self.active_detections[client_id]:
+                    if self.active_detections[client_id]['url'] == url:
+                        # Same URL, already processing
+                        await self.send_status(websocket, "Already processing this URL", self.active_detections[client_id].get('progress', 0))
+                        return
                 
-                # Initialize detection tracking for this client
-                self.active_detections[client_id] = {
-                    'cancel': False,
-                    'progress': 0
-                }
+                # Cancel any existing detection for this client
+                if client_id in self.active_detections:
+                    self.active_detections[client_id]['cancel'] = True
                 
-                # Run detection in a separate thread to avoid blocking
+                # Start new detection
+                self.active_detections[client_id] = {'cancel': False, 'url': url, 'progress': 0}
+                
+                # Start detection in a separate thread
                 detection_thread = threading.Thread(
                     target=self.run_chord_detection,
-                    args=(websocket, youtube_url, client_id)
+                    args=(websocket, url, client_id)
                 )
-                detection_thread.daemon = True
                 detection_thread.start()
                 
-            elif message_type == 'playback_control':
-                # Handle playback control messages
-                command = data.get('command')
-                
-                if command == 'play':
-                    # Handle play command - could start audio playback or chord sequence
-                    pass
-                elif command == 'stop':
-                    # Handle stop command
-                    pass
-                elif command == 'seek':
-                    # Handle seek command
-                    position = data.get('position', 0)
-                    # Seek to position
-                    pass
-            
-            else:
-                logger.warning(f"Unknown message type: {message_type}")
-                await self.send_error(websocket, f"Unknown message type: {message_type}")
+            elif data['type'] == 'cancel_detection':
+                if client_id in self.active_detections:
+                    self.active_detections[client_id]['cancel'] = True
+                    await self.send_status(websocket, "Chord detection cancelled.", 0)
+                    
+            elif data['type'] == 'train_model':
+                # Start model training in a separate thread
+                training_thread = threading.Thread(
+                    target=self.run_model_training,
+                    args=(websocket, client_id)
+                )
+                training_thread.start()
                 
         except json.JSONDecodeError:
-            logger.error("Invalid JSON message")
-            await self.send_error(websocket, "Invalid JSON message")
+            await self.send_error(websocket, "Invalid message format")
+        except KeyError as e:
+            await self.send_error(websocket, f"Missing required field: {str(e)}")
         except Exception as e:
             logger.error(f"Error handling message: {str(e)}")
-            logger.error(traceback.format_exc())
-            await self.send_error(websocket, f"Server error: {str(e)}")
+            await self.send_error(websocket, "Internal server error")
     
     def run_chord_detection(self, websocket, youtube_url, client_id):
         """Run chord detection in a separate thread"""
+        job_id = str(uuid.uuid4())[:8]  # Short unique ID
+        logger.info(f"[{job_id}] Starting chord detection for URL: {youtube_url}")
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
@@ -232,38 +233,72 @@ class PianoVisualizerServer:
     async def send_status(self, websocket, status, progress):
         """Send a status update message"""
         await websocket.send(json.dumps({
-            'type': 'detection_status',
-            'status': status,
+            'type': 'status',  # Changed from 'detection_status'
+            'message': status,  # Changed from 'status'
             'progress': progress
         }))
-    
+
     async def send_error(self, websocket, error_message):
         """Send an error message"""
         try:
             await websocket.send(json.dumps({
                 'type': 'error',
-                'error': error_message
+                'message': error_message  # Changed from 'error'
             }))
         except:
             logger.error(f"Failed to send error message to client")
     
     async def handler(self, websocket, path):
-        """Handle a WebSocket connection"""
-        client_id = await self.register(websocket)
-        
+        """Handle WebSocket connection"""
         try:
+            await self.register(websocket)
             async for message in websocket:
                 await self.handle_message(websocket, message)
         except websockets.exceptions.ConnectionClosed:
-            logger.info(f"Connection closed by client: {client_id}")
+            pass
         finally:
             await self.unregister(websocket)
     
     async def start_server(self):
         """Start the WebSocket server"""
-        server = await websockets.serve(self.handler, self.host, self.port)
+        # Create a standalone handler function that works with what the library actually passes
+        async def websocket_handler(websocket, path=None):
+            try:
+                await self.register(websocket)
+                async for message in websocket:
+                    await self.handle_message(websocket, message)
+            except websockets.exceptions.ConnectionClosed:
+                pass
+            finally:
+                await self.unregister(websocket)
+        
+        server = await websockets.serve(websocket_handler, self.host, self.port)
         logger.info(f"WebSocket server started at ws://{self.host}:{self.port}")
         return server
+
+    def run_model_training(self, websocket, client_id):
+        """Run model training in a separate thread"""
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            # Send training status
+            loop.run_until_complete(self.send_status(websocket, "Starting model training...", 0))
+            
+            # Train the models
+            success = self.detector.train_models()
+            
+            if success:
+                loop.run_until_complete(self.send_status(websocket, "Model training complete!", 100))
+            else:
+                loop.run_until_complete(self.send_error(websocket, "Model training failed. Please check the logs."))
+                
+        except Exception as e:
+            logger.error(f"Error in model training: {str(e)}")
+            loop.run_until_complete(self.send_error(websocket, f"Error training model: {str(e)}"))
+            
+        finally:
+            loop.close()
 
 def main():
     parser = argparse.ArgumentParser(description='Piano Visualizer WebSocket Server')

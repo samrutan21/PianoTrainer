@@ -217,6 +217,18 @@ class ChordProgressionDetector:
             'min_progression_duration': 2.0,  # Minimum duration for a progression
         }
         
+        # Training configuration
+        self.training_config = {
+            'epochs': 50,                # Number of training epochs
+            'batch_size': 32,            # Batch size for training
+            'learning_rate': 0.01,       # Initial learning rate
+            'lr_decay': 0.95,           # Learning rate decay per epoch
+            'validation_split': 0.2,     # Fraction of data used for validation
+            'min_training_samples': 5,   # Minimum number of training samples required
+            'early_stopping_patience': 5, # Number of epochs without improvement before stopping
+            'model_save_path': 'chord_detector_model.pkl'  # Path to save trained model
+        }
+        
         # Initialize chord complexity map
         self._init_chord_complexity()
         
@@ -227,15 +239,7 @@ class ChordProgressionDetector:
             'chord_weights': {}  # Learned weights for chord detection
         }
         
-        # Add configuration for training
-        self.training_config = {
-            'min_training_samples': 50,
-            'validation_split': 0.2,
-            'epochs': 100,
-            'batch_size': 32
-        }
-        
-        # Initialize with default weights
+        # Initialize default weights
         self._initialize_default_weights()
     
     def _init_chord_complexity(self):
@@ -426,23 +430,25 @@ class ChordProgressionDetector:
             return False
     
     def train_models(self):
-        """Train the key and chord detection models"""
-        if len(self.training_data['known_songs']) < self.training_config['min_training_samples']:
-            print(f"Not enough training samples. Need at least {self.training_config['min_training_samples']}")
-            return False
-        
+        """Train both key detection and chord detection models"""
         try:
-            # Split into training and validation sets
-            np.random.shuffle(self.training_data['known_songs'])
-            split_idx = int(len(self.training_data['known_songs']) * (1 - self.training_config['validation_split']))
-            train_data = self.training_data['known_songs'][:split_idx]
-            val_data = self.training_data['known_songs'][split_idx:]
+            if len(self.training_data['known_songs']) < self.training_config['min_training_samples']:
+                print(f"Not enough training samples. Need at least {self.training_config['min_training_samples']}")
+                return False
+                
+            # Split data into training and validation sets
+            train_size = int(len(self.training_data['known_songs']) * (1 - self.training_config['validation_split']))
+            train_data = self.training_data['known_songs'][:train_size]
+            val_data = self.training_data['known_songs'][train_size:]
             
-            # Train key detection model
+            print("Training key detection model...")
             self._train_key_detection(train_data, val_data)
             
-            # Train chord detection model
+            print("Training chord detection model...")
             self._train_chord_detection(train_data, val_data)
+            
+            # Save trained model
+            self._save_model()
             
             return True
             
@@ -450,83 +456,324 @@ class ChordProgressionDetector:
             print(f"Error training models: {str(e)}")
             return False
     
+    def _save_model(self):
+        """Save trained model to file"""
+        try:
+            import pickle
+            model_data = {
+                'key_weights': self.training_data['key_weights'],
+                'chord_weights': self.training_data['chord_weights'],
+                'config': self.config,
+                'training_config': self.training_config
+            }
+            
+            with open(self.training_config['model_save_path'], 'wb') as f:
+                pickle.dump(model_data, f)
+                
+            print(f"Model saved to {self.training_config['model_save_path']}")
+            
+        except Exception as e:
+            print(f"Error saving model: {str(e)}")
+    
+    def load_model(self):
+        """Load trained model from file"""
+        try:
+            import pickle
+            if os.path.exists(self.training_config['model_save_path']):
+                with open(self.training_config['model_save_path'], 'rb') as f:
+                    model_data = pickle.load(f)
+                    
+                self.training_data['key_weights'] = model_data['key_weights']
+                self.training_data['chord_weights'] = model_data['chord_weights']
+                self.config.update(model_data['config'])
+                self.training_config.update(model_data['training_config'])
+                
+                print(f"Model loaded from {self.training_config['model_save_path']}")
+                return True
+            return False
+            
+        except Exception as e:
+            print(f"Error loading model: {str(e)}")
+            return False
+    
     def _train_key_detection(self, train_data, val_data):
         """Train the key detection model using gradient descent"""
         try:
-            # Initialize weights
+            # Initialize weights if not already done
+            if not self.training_data['key_weights']:
+                self._initialize_default_weights()
+            
             weights = self.training_data['key_weights'].copy()
-            learning_rate = 0.01
+            learning_rate = self.training_config['learning_rate']
             best_accuracy = 0
             
+            print("Starting key detection training...")
             for epoch in range(self.training_config['epochs']):
                 # Shuffle training data
                 np.random.shuffle(train_data)
                 
+                total_loss = 0
                 # Mini-batch gradient descent
                 for i in range(0, len(train_data), self.training_config['batch_size']):
                     batch = train_data[i:i + self.training_config['batch_size']]
                     
-                    # Calculate gradients
-                    gradients = self._calculate_key_gradients(batch, weights)
+                    # Process each sample in batch
+                    batch_loss = 0
+                    batch_gradients = {k: 0.0 for k in weights.keys()}
                     
-                    # Update weights
-                    for key in weights:
-                        weights[key] -= learning_rate * gradients[key]
+                    for sample in batch:
+                        # Extract numerical features
+                        features = self._extract_numerical_features(sample)
+                        
+                        # Predict key using the current weights
+                        predicted_key = self._predict_key(features, weights)
+                        
+                        # Calculate loss (1 if incorrect, 0 if correct)
+                        loss = 0.0 if predicted_key == sample.get('true_key', '') else 1.0
+                        batch_loss += loss
+                        
+                        # Update gradients only if prediction was wrong
+                        if loss > 0:
+                            for key in weights:
+                                if key in features:
+                                    batch_gradients[key] += features[key]
+                    
+                    # Average gradients over batch and update weights
+                    batch_size = max(1, len(batch))  # Avoid division by zero
+                    for key in batch_gradients:
+                        batch_gradients[key] /= batch_size
+                        weights[key] -= learning_rate * batch_gradients[key]
+                    
+                    total_loss += batch_loss
                 
-                # Validate
+                # Validate after each epoch
                 accuracy = self._validate_key_detection(val_data, weights)
                 
-                # Update best weights
+                print(f"Epoch {epoch + 1}/{self.training_config['epochs']}, Loss: {total_loss:.4f}, Accuracy: {accuracy:.2%}")
+                
                 if accuracy > best_accuracy:
                     best_accuracy = accuracy
                     self.training_data['key_weights'] = weights.copy()
                 
-                # Adjust learning rate
-                learning_rate *= 0.95
+                # Decay learning rate
+                learning_rate *= self.training_config['lr_decay']
             
             print(f"Key detection training complete. Best validation accuracy: {best_accuracy:.2%}")
             
         except Exception as e:
             print(f"Error in key detection training: {str(e)}")
+            import traceback
+            traceback.print_exc()
     
     def _train_chord_detection(self, train_data, val_data):
         """Train the chord detection model using gradient descent"""
         try:
-            # Initialize weights
+            # Initialize weights if not already done
+            if not self.training_data['chord_weights']:
+                self._initialize_default_weights()
+            
             weights = self.training_data['chord_weights'].copy()
-            learning_rate = 0.01
+            learning_rate = self.training_config['learning_rate']
             best_accuracy = 0
             
+            print("Starting chord detection training...")
             for epoch in range(self.training_config['epochs']):
                 # Shuffle training data
                 np.random.shuffle(train_data)
                 
+                total_loss = 0
                 # Mini-batch gradient descent
                 for i in range(0, len(train_data), self.training_config['batch_size']):
                     batch = train_data[i:i + self.training_config['batch_size']]
                     
-                    # Calculate gradients
-                    gradients = self._calculate_chord_gradients(batch, weights)
+                    # Process each sample in batch
+                    batch_loss = 0
+                    batch_gradients = {k: 0.0 for k in weights.keys()}
                     
-                    # Update weights
-                    for key in weights:
-                        weights[key] -= learning_rate * gradients[key]
+                    for sample in batch:
+                        if 'true_chords' not in sample or not sample['true_chords']:
+                            continue
+                        
+                        # Extract features for chord detection
+                        features = self._extract_chord_features(sample)
+                        
+                        # Predict chords using current weights
+                        predicted_chords = self._predict_chords(sample, weights)
+                        
+                        # Calculate accuracy and loss
+                        accuracy = self._calculate_chord_accuracy(predicted_chords, sample['true_chords'])
+                        loss = 1.0 - accuracy
+                        batch_loss += loss
+                        
+                        # Update gradients based on loss
+                        for key in weights:
+                            if key in features:
+                                batch_gradients[key] += features[key] * loss
+                    
+                    # Average gradients over batch and update weights
+                    batch_size = max(1, len(batch))  # Avoid division by zero
+                    for key in batch_gradients:
+                        batch_gradients[key] /= batch_size
+                        weights[key] -= learning_rate * batch_gradients[key]
+                    
+                    total_loss += batch_loss
                 
-                # Validate
+                # Validate after each epoch
                 accuracy = self._validate_chord_detection(val_data, weights)
                 
-                # Update best weights
+                print(f"Epoch {epoch + 1}/{self.training_config['epochs']}, Loss: {total_loss:.4f}, Accuracy: {accuracy:.2%}")
+                
                 if accuracy > best_accuracy:
                     best_accuracy = accuracy
                     self.training_data['chord_weights'] = weights.copy()
                 
-                # Adjust learning rate
-                learning_rate *= 0.95
+                # Decay learning rate
+                learning_rate *= self.training_config['lr_decay']
             
             print(f"Chord detection training complete. Best validation accuracy: {best_accuracy:.2%}")
             
         except Exception as e:
             print(f"Error in chord detection training: {str(e)}")
+            import traceback
+            traceback.print_exc()
+    
+    def _extract_numerical_features(self, sample):
+        """Extract numerical features from a sample for key detection"""
+        features = {}
+        
+        # Extract chroma correlation
+        if 'chroma_correlation' in sample:
+            if isinstance(sample['chroma_correlation'], dict):
+                # Handle each key separately to avoid inhomogeneous arrays
+                try:
+                    values = []
+                    for value in sample['chroma_correlation'].values():
+                        if isinstance(value, (int, float)):
+                            values.append(float(value))
+                        elif isinstance(value, (list, np.ndarray)) and all(isinstance(x, (int, float)) for x in value):
+                            values.append(float(np.mean(value)))
+                    
+                    if values:
+                        features['chroma_correlation'] = sum(values) / len(values)
+                    else:
+                        features['chroma_correlation'] = 0.5
+                except:
+                    features['chroma_correlation'] = 0.5
+            elif isinstance(sample['chroma_correlation'], (int, float)):
+                features['chroma_correlation'] = float(sample['chroma_correlation'])
+            else:
+                features['chroma_correlation'] = 0.5
+        else:
+            features['chroma_correlation'] = 0.5
+        
+        # Extract pitch class distribution
+        if 'pitch_class_distribution' in sample:
+            if isinstance(sample['pitch_class_distribution'], dict):
+                if 'pitch_strength' in sample['pitch_class_distribution']:
+                    try:
+                        if isinstance(sample['pitch_class_distribution']['pitch_strength'], list):
+                            if all(isinstance(x, (int, float)) for x in sample['pitch_class_distribution']['pitch_strength']):
+                                features['pitch_class_distribution'] = float(np.mean(sample['pitch_class_distribution']['pitch_strength']))
+                            else:
+                                features['pitch_class_distribution'] = 0.5
+                        else:
+                            features['pitch_class_distribution'] = 0.5
+                    except:
+                        features['pitch_class_distribution'] = 0.5
+                else:
+                    features['pitch_class_distribution'] = 0.5
+            elif isinstance(sample['pitch_class_distribution'], (int, float)):
+                features['pitch_class_distribution'] = float(sample['pitch_class_distribution'])
+            else:
+                features['pitch_class_distribution'] = 0.5
+        else:
+            features['pitch_class_distribution'] = 0.5
+        
+        # Extract chord progression features
+        if 'chord_progression' in sample:
+            if isinstance(sample['chord_progression'], dict) and 'root_transitions' in sample['chord_progression']:
+                features['chord_progression'] = float(len(sample['chord_progression']['root_transitions'])) / 10.0
+            else:
+                features['chord_progression'] = 0.5
+        else:
+            features['chord_progression'] = 0.5
+        
+        # Add minor key boost feature
+        features['minor_key_boost'] = 1.0  # Default value
+        
+        return features
+    
+    def _extract_chord_features(self, sample):
+        """Extract features for chord detection"""
+        features = {}
+        
+        # Template matching feature
+        if 'chroma_correlation' in sample:
+            if isinstance(sample['chroma_correlation'], dict):
+                # Handle each key separately to avoid inhomogeneous arrays
+                try:
+                    values = []
+                    for value in sample['chroma_correlation'].values():
+                        if isinstance(value, (int, float)):
+                            values.append(float(value))
+                        elif isinstance(value, (list, np.ndarray)) and all(isinstance(x, (int, float)) for x in value):
+                            values.append(float(np.mean(value)))
+                    
+                    if values:
+                        features['template_matching'] = sum(values) / len(values)
+                    else:
+                        features['template_matching'] = 0.5
+                except:
+                    features['template_matching'] = 0.5
+            elif isinstance(sample['chroma_correlation'], (int, float)):
+                features['template_matching'] = float(sample['chroma_correlation'])
+            else:
+                features['template_matching'] = 0.5
+        else:
+            features['template_matching'] = 0.5
+        
+        # Harmonic context feature
+        if 'chord_progression' in sample and isinstance(sample['chord_progression'], dict):
+            if 'root_transitions' in sample['chord_progression']:
+                features['harmonic_context'] = float(len(sample['chord_progression']['root_transitions'])) / 10.0
+            else:
+                features['harmonic_context'] = 0.5
+        else:
+            features['harmonic_context'] = 0.5
+        
+        # Temporal smoothing feature
+        if 'true_chords' in sample:
+            if isinstance(sample['true_chords'], list) and len(sample['true_chords']) > 0:
+                try:
+                    if all('start' in chord and 'end' in chord for chord in sample['true_chords']):
+                        durations = [float(chord['end'] - chord['start']) for chord in sample['true_chords']]
+                        features['temporal_smoothing'] = float(np.mean(durations)) if durations else 0.5
+                    else:
+                        features['temporal_smoothing'] = 0.5
+                except:
+                    features['temporal_smoothing'] = 0.5
+            else:
+                features['temporal_smoothing'] = 0.5
+        else:
+            features['temporal_smoothing'] = 0.5
+        
+        # Cluster penalty feature
+        if 'pitch_class_distribution' in sample:
+            if isinstance(sample['pitch_class_distribution'], dict):
+                try:
+                    entropy_value = sample['pitch_class_distribution'].get('pitch_entropy', 2.0)
+                    if isinstance(entropy_value, (int, float)):
+                        features['cluster_penalty'] = float(entropy_value) / 4.0
+                    else:
+                        features['cluster_penalty'] = 0.5
+                except:
+                    features['cluster_penalty'] = 0.5
+            else:
+                features['cluster_penalty'] = 0.5
+        else:
+            features['cluster_penalty'] = 0.5
+        
+        return features
     
     def _calculate_key_gradients(self, batch, weights):
         """Calculate gradients for key detection weights"""
@@ -541,7 +788,15 @@ class ChordProgressionDetector:
             
             # Update gradients
             for key in weights:
-                gradients[key] += error * sample[key]
+                if key == 'minor_key_boost':
+                    continue  # Skip this weight in gradient calculation
+                if key in sample:
+                    if isinstance(sample[key], dict):
+                        # For dictionary features, use average value
+                        feature_value = sum(sample[key].values()) / len(sample[key])
+                    else:
+                        feature_value = sample[key]
+                    gradients[key] += error * feature_value
         
         # Average gradients
         for key in gradients:
@@ -560,9 +815,16 @@ class ChordProgressionDetector:
             # Calculate error
             error = self._calculate_chord_error(predicted_chords, sample['true_chords'])
             
-            # Update gradients
+            # Update gradients using available features
             for key in weights:
-                gradients[key] += error * sample[key]
+                if key == 'template_matching':
+                    gradients[key] += error * self._calculate_template_match_score(sample)
+                elif key == 'harmonic_context':
+                    gradients[key] += error * self._calculate_harmonic_context_score(sample)
+                elif key == 'temporal_smoothing':
+                    gradients[key] += error * self._calculate_temporal_smoothing_score(sample)
+                elif key == 'cluster_penalty':
+                    gradients[key] += error * self._calculate_cluster_penalty_score(sample)
         
         # Average gradients
         for key in gradients:
@@ -570,13 +832,45 @@ class ChordProgressionDetector:
         
         return gradients
     
+    def _calculate_template_match_score(self, sample):
+        """Calculate template matching score from chroma features"""
+        if 'chroma_correlation' in sample:
+            return np.mean(list(sample['chroma_correlation'].values()))
+        return 0.5  # Default value if feature not available
+    
+    def _calculate_harmonic_context_score(self, sample):
+        """Calculate harmonic context score from chord progression"""
+        if 'chord_progression' in sample and 'root_transitions' in sample['chord_progression']:
+            return len(sample['chord_progression']['root_transitions']) / 10.0
+        return 0.5
+    
+    def _calculate_temporal_smoothing_score(self, sample):
+        """Calculate temporal smoothing score"""
+        if 'true_chords' in sample:
+            # Calculate average chord duration
+            durations = [chord['end'] - chord['start'] for chord in sample['true_chords']]
+            avg_duration = np.mean(durations) if durations else 0.5
+            return min(1.0, avg_duration / 2.0)  # Normalize to [0,1]
+        return 0.5
+    
+    def _calculate_cluster_penalty_score(self, sample):
+        """Calculate cluster penalty score"""
+        if 'pitch_class_distribution' in sample:
+            # Use pitch class entropy as cluster penalty
+            return min(1.0, sample['pitch_class_distribution'].get('pitch_entropy', 0) / 4.0)
+        return 0.5
+    
     def _validate_key_detection(self, val_data, weights):
         """Validate key detection accuracy"""
         correct = 0
-        total = len(val_data)
+        total = max(1, len(val_data))  # Avoid division by zero
         
         for sample in val_data:
-            predicted_key = self._predict_key(sample, weights)
+            if 'true_key' not in sample:
+                continue
+                
+            features = self._extract_numerical_features(sample)
+            predicted_key = self._predict_key(features, weights)
             if predicted_key == sample['true_key']:
                 correct += 1
         
@@ -588,15 +882,26 @@ class ChordProgressionDetector:
         total = 0
         
         for sample in val_data:
+            if 'true_chords' not in sample or not sample['true_chords']:
+                continue
+                
             predicted_chords = self._predict_chords(sample, weights)
-            correct += self._calculate_chord_accuracy(predicted_chords, sample['true_chords'])
+            correct_count = self._calculate_chord_accuracy(predicted_chords, sample['true_chords']) * len(sample['true_chords'])
+            correct += correct_count
             total += len(sample['true_chords'])
         
-        return correct / total if total > 0 else 0
+        return correct / max(1, total)  # Avoid division by zero
     
     def _predict_key(self, sample, weights):
         """Predict key using current weights"""
         scores = {}
+        
+        # Extract features
+        features = {
+            'chroma_correlation': np.mean(list(sample['chroma_correlation'].values())) if isinstance(sample['chroma_correlation'], dict) else sample['chroma_correlation'],
+            'pitch_class_distribution': np.mean([v for v in sample['pitch_class_distribution']['pitch_strength']]) if isinstance(sample['pitch_class_distribution'], dict) else sample['pitch_class_distribution'],
+            'chord_progression': len(sample['chord_progression']['root_transitions']) / 10.0 if isinstance(sample['chord_progression'], dict) and 'root_transitions' in sample['chord_progression'] else 0.5
+        }
         
         # Calculate scores for each key
         for key in ['C Major', 'C Minor', 'C# Major', 'C# Minor', 'D Major', 'D Minor',
@@ -604,12 +909,12 @@ class ChordProgressionDetector:
                    'F# Major', 'F# Minor', 'G Major', 'G Minor', 'G# Major', 'G# Minor',
                    'A Major', 'A Minor', 'A# Major', 'A# Minor', 'B Major', 'B Minor']:
             score = 0
-            for feature, weight in weights.items():
-                if feature in sample:
-                    score += sample[feature] * weight
+            for feature_name, feature_value in features.items():
+                if feature_name in weights:
+                    score += feature_value * weights[feature_name]
             
             # Apply minor key boost if applicable
-            if 'Minor' in key:
+            if 'Minor' in key and 'minor_key_boost' in weights:
                 score *= weights['minor_key_boost']
             
             scores[key] = score
@@ -618,37 +923,35 @@ class ChordProgressionDetector:
     
     def _predict_chords(self, sample, weights):
         """Predict chords using current weights"""
-        try:
-            # Extract features
-            chroma = sample.get('chroma_correlation', {})
-            progression = sample.get('chord_progression', {})
-            
-            # Calculate scores for each chord template
-            chord_scores = {}
-            for chord_name, template in self.CHORD_TEMPLATES.items():
-                score = 0
-                
-                # Template matching score
-                if 'template_matching' in weights:
-                    score += weights['template_matching'] * np.dot(chroma.get('chroma_mean', np.zeros(12)), template)
-                
-                # Harmonic context score
-                if 'harmonic_context' in weights:
-                    context_score = self._calculate_harmonic_context(chord_name, progression)
-                    score += weights['harmonic_context'] * context_score
-                
-                # Apply cluster penalty
-                if 'cluster' in chord_name and 'cluster_penalty' in weights:
-                    score *= weights['cluster_penalty']
-                
-                chord_scores[chord_name] = score
-            
-            # Select best chord
-            return max(chord_scores.items(), key=lambda x: x[1])[0]
-            
-        except Exception as e:
-            print(f"Error predicting chords: {str(e)}")
-            return "N"
+        # Extract chroma features
+        chroma = np.array(sample['chroma_correlation']['values']) if isinstance(sample['chroma_correlation'], dict) and 'values' in sample['chroma_correlation'] else np.zeros(12)
+        
+        # Calculate template matching scores
+        template_scores = {}
+        for chord_name, template in self.CHORD_TEMPLATES.items():
+            similarity = np.dot(chroma, template)
+            template_scores[chord_name] = similarity * weights.get('template_matching', 1.0)
+        
+        # Apply harmonic context
+        if isinstance(sample['chord_progression'], dict) and 'root_transitions' in sample['chord_progression']:
+            context_weight = weights.get('harmonic_context', 0.3)
+            for chord in template_scores:
+                root = chord.split(':')[0]
+                if root in sample['chord_progression']['root_transitions']:
+                    template_scores[chord] *= (1 + context_weight)
+        
+        # Get predicted chords
+        predicted = []
+        for i, chord_info in enumerate(sample['true_chords']):  # Use timing from true chords
+            start, end = chord_info['start'], chord_info['end']
+            best_chord = max(template_scores.items(), key=lambda x: x[1])[0]
+            predicted.append({
+                'chord': best_chord,
+                'start': start,
+                'end': end
+            })
+        
+        return predicted
     
     def _calculate_harmonic_context(self, chord, progression):
         """Calculate harmonic context score for a chord"""
@@ -694,21 +997,45 @@ class ChordProgressionDetector:
         except:
             return 1.0
     
-    def _calculate_chord_accuracy(self, predicted, true):
-        """Calculate accuracy between predicted and true chords"""
-        try:
-            if predicted == "N" or true == "N":
-                return 0
-            
-            # Parse chords
-            pred_root, pred_type = predicted.split(':')
-            true_root, true_type = true.split(':')
-            
-            # Check if both root and type match
-            return 1 if pred_root == true_root and pred_type == true_type else 0
-            
-        except:
-            return 0
+    def _calculate_chord_accuracy(self, predicted_chords, true_chords):
+        """Calculate accuracy between predicted and true chord sequences"""
+        correct = 0
+        total = 0
+        
+        # Convert predicted chords to time-based format if needed
+        if isinstance(predicted_chords, list) and isinstance(predicted_chords[0], str):
+            predicted_time_chords = []
+            for i, chord in enumerate(predicted_chords):
+                predicted_time_chords.append({
+                    'chord': chord,
+                    'start': true_chords[i]['start'],
+                    'end': true_chords[i]['end']
+                })
+            predicted_chords = predicted_time_chords
+        
+        # Compare chords at each time point
+        for true_chord in true_chords:
+            # Find overlapping predicted chord
+            for pred_chord in predicted_chords:
+                if (pred_chord['start'] < true_chord['end'] and 
+                    pred_chord['end'] > true_chord['start']):
+                    # Calculate overlap duration
+                    overlap = min(pred_chord['end'], true_chord['end']) - \
+                             max(pred_chord['start'], true_chord['start'])
+                    
+                    # Compare root notes and chord types
+                    true_root, true_type = true_chord['chord'].split(':')
+                    pred_root, pred_type = pred_chord['chord'].split(':')
+                    
+                    # Award partial credit
+                    if true_root == pred_root:
+                        correct += 0.7 * overlap  # 70% credit for correct root
+                        if true_type == pred_type:
+                            correct += 0.3 * overlap  # Additional 30% for correct type
+                    
+                    total += overlap
+        
+        return correct / total if total > 0 else 0
     
     def _calculate_chroma_correlation(self, chroma):
         """Calculate chroma correlation features"""
@@ -862,7 +1189,13 @@ class ChordProgressionDetector:
             import yt_dlp
             import os
             
-            # Set up yt-dlp options
+            # Create a temporary directory for downloads if output_path is not provided
+            if not output_path:
+                import tempfile
+                temp_dir = tempfile.mkdtemp()
+                output_path = os.path.join(temp_dir, '%(id)s.%(ext)s')
+            
+            # Set up yt-dlp options with more robustness
             ydl_opts = {
                 'format': 'bestaudio/best',
                 'postprocessors': [{
@@ -870,21 +1203,46 @@ class ChordProgressionDetector:
                     'preferredcodec': 'mp3',
                     'preferredquality': '192',
                 }],
-                'outtmpl': output_path if output_path else '%(id)s.%(ext)s',
-                'quiet': True,
-                'no_warnings': True,
+                'outtmpl': output_path,
+                'quiet': False,  # Changed to show more info for debugging
+                'no_warnings': False,  # Changed to show warnings
+                'ignoreerrors': True,  # Continue on download errors
+                'noprogress': False,  # Show progress
+                'nooverwrites': False,  # Overwrite existing files
             }
             
             # Download the audio
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
+                if not info:
+                    print("Failed to extract video information")
+                    return None
+                    
                 downloaded_file = ydl.prepare_filename(info)
                 
                 # Get the actual MP3 file path
                 mp3_file = os.path.splitext(downloaded_file)[0] + '.mp3'
-                print(f"Audio downloaded to {mp3_file}")
-                return mp3_file
                 
+                # Verify the file exists
+                if not os.path.exists(mp3_file):
+                    print(f"Warning: MP3 file not found at expected path: {mp3_file}")
+                    
+                    # Try to find the file in the same directory
+                    dir_path = os.path.dirname(mp3_file)
+                    if dir_path:
+                        for file in os.listdir(dir_path):
+                            if file.endswith('.mp3') and info['id'] in file:
+                                mp3_file = os.path.join(dir_path, file)
+                                print(f"Found MP3 file at alternative path: {mp3_file}")
+                                break
+                
+                if os.path.exists(mp3_file):
+                    print(f"Audio downloaded to {mp3_file}")
+                    return mp3_file
+                else:
+                    print(f"Error: Could not find downloaded MP3 file")
+                    return None
+                    
         except Exception as e:
             print(f"Error downloading YouTube video: {str(e)}")
             import traceback
@@ -1687,39 +2045,62 @@ class ChordProgressionDetector:
         
     def analyze_youtube_video(self, url, visualize=True):
         """Analyze chord progression from YouTube video"""
+        print("Starting analysis of YouTube video...")
+        
         # Download audio from YouTube
+        print("Downloading audio...")
         audio_path = self.download_youtube_audio(url)
         if audio_path is None:
+            print("Download failed, returning None")
             return None
         
         try:
             # Extract chroma features
+            print("Extracting chroma features...")
             chroma, sr, hop_length = self.extract_chroma_features(audio_path)
+            if chroma is None:
+                print("Failed to extract chroma features")
+                return None
+                
+            print(f"Chroma shape: {chroma.shape}, Sample rate: {sr}, Hop length: {hop_length}")
             
             # Identify chords
+            print("Identifying chords...")
             chord_sequence = self.identify_chords(chroma)
+            print(f"Identified {len(chord_sequence)} chord segments")
             
             # Convert to time-based sequence
+            print("Converting to time-based sequence...")
             time_chord_sequence = self.convert_frames_to_time(chord_sequence, sr, hop_length)
+            print(f"Converted {len(time_chord_sequence)} time-based chord segments")
             
             # Simplify the chord sequence
+            print("Simplifying chord sequence...")
             simplified_sequence = self.simplify_chord_sequence(time_chord_sequence)
+            print(f"Simplified to {len(simplified_sequence)} chord segments")
             
             # Estimate the musical key
+            print("Estimating musical key...")
             key_estimation = self.estimate_key(chroma, simplified_sequence)
             print(f"Estimated key: {key_estimation}")
             
             # Detect chord progressions
+            print("Detecting chord progressions...")
             progressions = self.detect_chord_progression(simplified_sequence)
+            print(f"Detected {len(progressions)} chord progressions")
             
             # Visualize if requested
             if visualize:
+                print("Creating visualization...")
                 self.visualize_chords(chroma, simplified_sequence, sr, hop_length, key_estimation)
+                print("Visualization complete")
             
             # Clean up temporary file
             if os.path.exists(audio_path):
                 os.remove(audio_path)
+                print(f"Removed temporary audio file: {audio_path}")
             
+            print("Analysis complete, returning results")
             return {
                 'chord_sequence': simplified_sequence,
                 'progressions': progressions,
@@ -1728,6 +2109,8 @@ class ChordProgressionDetector:
         
         except Exception as e:
             print(f"Error during analysis: {e}")
+            import traceback
+            traceback.print_exc()
             # Clean up temporary file
             if os.path.exists(audio_path):
                 os.remove(audio_path)

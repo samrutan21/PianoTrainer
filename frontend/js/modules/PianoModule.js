@@ -134,6 +134,15 @@ const PianoModule = {
         
         // Handle window blur to stop all notes
         window.addEventListener('blur', () => {
+          // Check if we should ignore focus events (for sequence playback)
+          const ignoreFocus = AppState.get('piano.ignoreFocus');
+          console.log('PianoModule: Window blur event - ignoreFocus =', ignoreFocus);
+          
+          if (ignoreFocus) {
+            console.log('PianoModule: Ignoring window blur due to sequence playback');
+            return;
+          }
+          
           console.log('PianoModule: Window lost focus, stopping all notes');
           this.stopAllNotes();
         });
@@ -539,20 +548,33 @@ const PianoModule = {
      * @param {Object} options - Playback options
      * @param {number} options.duration - Duration in ms
      * @param {boolean} options.ignoreInPractice - Whether to ignore these notes in practice mode
+     * @param {boolean} options.ignoreFocus - Whether to ignore window focus events
      * @returns {Promise} Resolves when chord finishes playing
      */
     playChord(notes, options = {}) {
       const { 
         duration = 2000,
-        ignoreInPractice = true // Add this flag to prevent demo playback from counting in practice
+        ignoreInPractice = true,
+        ignoreFocus = false
       } = options;
       
+      console.log(`PianoModule: Playing chord with ${notes.length} notes:`, notes);
+      console.log(`PianoModule: Chord options: duration=${duration}ms, ignoreInPractice=${ignoreInPractice}, ignoreFocus=${ignoreFocus}`);
+      
+      // Set ignoreFocus flag in AppState if needed
+      if (ignoreFocus) {
+        AppState.set('piano.ignoreFocus', true);
+        console.log('PianoModule: Set ignoreFocus flag to true');
+      }
+      
       // Stop any currently playing notes and wait for them to fully stop
+      console.log('PianoModule: Stopping all active notes before playing chord');
       this.stopAllNotes();
       AudioEngine.stopAllNotes();
       
       // Clear any existing chord timeout
       if (AppState.timeouts.chord !== null) {
+        console.log('PianoModule: Clearing existing chord timeout');
         clearTimeout(AppState.timeouts.chord);
         AppState.timeouts.chord = null;
       }
@@ -561,18 +583,22 @@ const PianoModule = {
       let tempPlayedNotes = [];
       if (ignoreInPractice && AppState.get('practice.isActive')) {
         tempPlayedNotes = [...AppState.get('practice.playedNotes')];
-        console.log('Saved played notes before chord demo:', tempPlayedNotes);
+        console.log('PianoModule: Saved played notes before chord demo:', tempPlayedNotes);
       }
       
       return new Promise((resolve) => {
         // Add a small delay to ensure previous notes are fully stopped
         setTimeout(() => {
+          console.log(`PianoModule: Starting chord playback after short delay`);
+          
           if (ignoreInPractice && AppState.get('practice.isActive')) {
             // Direct audio playback for demonstration in practice mode
+            console.log(`PianoModule: Using direct audio playback for practice mode demo`);
             const noteObjs = [];
             
             // Play each note in the chord
             notes.forEach(note => {
+              console.log(`PianoModule: Playing chord note: ${note}`);
               const noteObj = AudioEngine.playNote(note);
               if (noteObj) {
                 noteObjs.push(noteObj);
@@ -586,7 +612,10 @@ const PianoModule = {
             });
             
             // Set a timeout to stop the notes
+            console.log(`PianoModule: Setting timeout to stop chord after ${duration}ms`);
             AppState.timeouts.chord = setTimeout(() => {
+              console.log('PianoModule: Chord duration timeout reached, stopping notes');
+              
               // Stop all notes
               noteObjs.forEach(noteObj => {
                 AudioEngine.stopNote(noteObj);
@@ -602,25 +631,45 @@ const PianoModule = {
               
               // Restore the original played notes
               AppState.set('practice.playedNotes', tempPlayedNotes);
-              console.log('Restored played notes after chord demo:', tempPlayedNotes);
+              console.log('PianoModule: Restored played notes after chord demo:', tempPlayedNotes);
               
+              // Clear ignoreFocus flag if it was set
+              if (ignoreFocus) {
+                AppState.set('piano.ignoreFocus', false);
+                console.log('PianoModule: Cleared ignoreFocus flag');
+              }
+              
+              console.log('PianoModule: Chord playback completed');
               resolve();
             }, duration);
             
           } else {
             // Standard playback for non-practice mode
+            console.log(`PianoModule: Using standard playback for chord`);
+            
             // Play each note in the chord
             notes.forEach(note => {
+              console.log(`PianoModule: Playing chord note: ${note}`);
               this.playNote(note);
             });
             
             // Set a timeout to stop the notes
+            console.log(`PianoModule: Setting timeout to stop chord after ${duration}ms`);
             AppState.timeouts.chord = setTimeout(() => {
+              console.log('PianoModule: Chord duration timeout reached, stopping all notes');
               this.stopAllNotes();
+              
+              // Clear ignoreFocus flag if it was set
+              if (ignoreFocus) {
+                AppState.set('piano.ignoreFocus', false);
+                console.log('PianoModule: Cleared ignoreFocus flag');
+              }
+              
+              console.log('PianoModule: Chord playback completed');
               resolve();
             }, duration);
           }
-        }, 50); // Small delay to ensure previous notes are fully stopped
+        }, 50);
       });
     },
 

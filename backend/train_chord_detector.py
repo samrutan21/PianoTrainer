@@ -1,7 +1,7 @@
 import os
 import json
 import numpy as np
-from backend.chord_detector import ChordProgressionDetector
+from chord_detector import ChordProgressionDetector
 
 class TrainingDataCollector:
     def __init__(self):
@@ -18,8 +18,22 @@ class TrainingDataCollector:
     
     def save_dataset(self):
         """Save training dataset to file"""
+        def convert_numpy_to_python(obj):
+            if isinstance(obj, np.ndarray):
+                return obj.tolist()
+            elif isinstance(obj, np.float32):
+                return float(obj)
+            elif isinstance(obj, dict):
+                return {k: convert_numpy_to_python(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_numpy_to_python(item) for item in obj]
+            return obj
+
+        # Convert numpy types to Python types
+        training_data_converted = convert_numpy_to_python(self.training_data)
+        
         with open(self.dataset_path, 'w') as f:
-            json.dump(self.training_data, f, indent=2)
+            json.dump(training_data_converted, f, indent=2)
         print(f"Saved {len(self.training_data)} training samples")
     
     def add_song(self, audio_path, true_key, true_chords):
@@ -86,7 +100,13 @@ class TrainingDataCollector:
 
 def main():
     collector = TrainingDataCollector()
-    collector.load_dataset()
+    
+    # Remove existing training data file if it exists
+    if os.path.exists(collector.dataset_path):
+        os.remove(collector.dataset_path)
+        print("Removed existing training data file")
+    
+    print("Starting fresh training data collection...")
     
     # Example 1: "Shape of You" by Ed Sheeran (C# Minor)
     shape_of_you_chords = [

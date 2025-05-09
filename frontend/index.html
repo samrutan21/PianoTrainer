@@ -60,6 +60,9 @@
 <div class="youtube-panel" id="youtube-panel" style="display: none;">
   <button class="youtube-panel-close" id="close-youtube-panel">&times;</button>
   <h2 class="panel-title">YouTube Chord Detection</h2>
+  <div class="connection-status">
+    WebSocket: <span id="connection-status">Disconnected</span>
+  </div>
   
   <div class="youtube-input-container">
     <div class="youtube-url-input">
@@ -75,15 +78,19 @@
   
   <div class="detection-progress" id="detection-progress" style="display: none;">
     <div class="loader"></div>
-    <span class="progress-status">Analyzing chord progression...</span>
+    <span class="progress-status">Starting chord detection...</span>
     <div class="progress-bar">
-      <div class="progress-bar-fill" id="progress-bar-fill"></div>
+      <div class="progress-bar-fill" id="progress-bar-fill" style="width: 0%;"></div>
     </div>
   </div>
   
   <div class="youtube-results" id="youtube-results" style="display: none;">
     <div class="results-header">
       <h3>Detected Chords</h3>
+      <div class="song-metadata">
+        <span id="song-key">Key: Unknown</span>
+        <span id="song-tempo">Tempo: 120 BPM</span>
+      </div>
       <div class="results-controls">
         <button id="play-detected-chords" class="control-button">
           <i class="icon-play"></i> Play Chord Progression
@@ -94,10 +101,6 @@
     
     <div class="chord-timeline" id="chord-timeline">
       <!-- Detected chords will be displayed here -->
-    </div>
-    
-    <div class="status-message" id="detection-status">
-      Enter a YouTube URL to detect chords
     </div>
   </div>
 </div>

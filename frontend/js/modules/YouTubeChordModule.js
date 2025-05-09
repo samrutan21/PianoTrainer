@@ -24,6 +24,13 @@ const YouTubeChordModule = {
       currentChordIndex: -1
     },
     
+    // Detection state
+    detection: {
+      isDetecting: false,
+      progress: 0,
+      status: ''
+    },
+    
     /**
      * Initialize the YouTube chord module
      */
@@ -32,6 +39,9 @@ const YouTubeChordModule = {
       
       // Set up event listeners
       this.setupEventListeners();
+      
+      // Initialize WebSocket connection
+      this.initWebSocket();
       
       console.log('YouTubeChordModule: Initialized');
       return this;
@@ -188,6 +198,50 @@ const YouTubeChordModule = {
     },
     
     /**
+     * Initialize WebSocket connection
+     */
+    initWebSocket() {
+      // Close existing connection if it exists
+      if (this.socket && this.socket.readyState !== WebSocket.CLOSED) {
+        console.log('Closing existing WebSocket connection');
+        this.socket.close();
+      }
+      const wsUrl = this.getWebSocketUrl();
+      this.socket = new WebSocket(wsUrl);
+      
+      this.socket.onopen = () => {
+        console.log('WebSocket connection established');
+        this.updateConnectionStatus(true);
+      };
+      
+      this.socket.onclose = () => {
+        console.log('WebSocket connection closed');
+        this.updateConnectionStatus(false);
+        
+        // Try to reconnect after a delay
+        setTimeout(() => this.initWebSocket(), 5000);
+      };
+      
+      this.socket.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        this.updateConnectionStatus(false);
+      };
+      
+      this.socket.onmessage = (event) => this.handleWebSocketMessage(event);
+    },
+    
+    /**
+     * Update connection status UI
+     */
+    updateConnectionStatus(isConnected) {
+      const statusElement = document.getElementById('connection-status');
+      if (statusElement) {
+        statusElement.textContent = isConnected ? 'Connected' : 'Disconnected';
+        statusElement.className = isConnected ? 'status-connected' : 'status-disconnected';
+      }
+    },
+    
+    /**
      * Start chord detection for the current YouTube URL
      */
     startChordDetection() {
@@ -199,105 +253,197 @@ const YouTubeChordModule = {
         return;
       }
       
-      const videoId = this.extractYouTubeId(url);
-      if (!videoId) {
-        UIManager.showFeedback('Invalid YouTube URL', 'error');
-        return;
+      // Immediately disable the button to prevent double clicks
+      const detectButton = document.getElementById('detect-chords');
+      if (detectButton) {
+        detectButton.disabled = true;
       }
       
-      // Show loading state
-      document.getElementById('detection-progress').style.display = 'block';
-      document.getElementById('youtube-results').style.display = 'none';
+      // Reset detection state
+      this.detection.isDetecting = true;
+      this.detection.progress = 0;
+      this.detection.status = 'Starting chord detection...';
       
-      // Reset chord data
+      // Immediately show progress bar and hide results
+      const detectionProgress = document.getElementById('detection-progress');
+      const youtubeResults = document.getElementById('youtube-results');
+      
+      if (detectionProgress) detectionProgress.style.display = 'flex';
+      if (youtubeResults) youtubeResults.style.display = 'none';
+      
+      // Update UI through the normal function
+      this.updateDetectionUI();
+      
+      // Clear previous results
       this.chordSequence = [];
+      this.updateChordTimeline();
       
-      // Connect to WebSocket server and send detection request
-      this.connectWebSocket(videoId);
+      // Send detection request
+      this.socket.send(JSON.stringify({
+        type: 'detect_chords',
+        url: url
+      }));
+      
+      // Update UI
+      if (detectButton) {
+        detectButton.textContent = 'Cancel Detection';
+        detectButton.disabled = false; // Re-enable for cancellation
+        detectButton.onclick = () => this.cancelDetection();
+      }
     },
     
     /**
-     * Connect to the Python WebSocket server for chord detection
-     * @param {string} videoId - YouTube video ID to analyze
+     * Cancel ongoing chord detection
      */
-    connectWebSocket(videoId) {
-      // Close existing socket if open
-      if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-        this.socket.close();
+    cancelDetection() {
+      if (this.detection.isDetecting) {
+        this.socket.send(JSON.stringify({
+          type: 'cancel_detection'
+        }));
+        
+        this.detection.isDetecting = false;
+        this.updateDetectionUI();
+        
+        // Reset detect button
+        const detectButton = document.getElementById('detect-chords');
+        if (detectButton) {
+          detectButton.textContent = 'Detect Chords';
+          detectButton.onclick = () => this.startChordDetection();
+        }
+      }
+    },
+    
+    /**
+     * Start model training
+     */
+    startModelTraining() {
+      // Send training request
+      this.socket.send(JSON.stringify({
+        type: 'train_model'
+      }));
+      
+      // Update UI
+      const trainButton = document.getElementById('train-model');
+      if (trainButton) {
+        trainButton.disabled = true;
+        trainButton.textContent = 'Training...';
+      }
+    },
+    
+    /**
+     * Update detection UI elements
+     */
+    updateDetectionUI() {
+      // Update progress bar
+      const progressBar = document.getElementById('progress-bar-fill');
+      if (progressBar) {
+        progressBar.style.width = `${this.detection.progress}%`;
       }
       
-      const wsUrl = this.getWebSocketUrl();
+      // Update status text
+      const statusText = document.getElementById('detection-status');
+      if (statusText) {
+        statusText.textContent = this.detection.status;
+      }
       
-      // Set up status
-      this.setDetectionStatus('Connecting to chord detection server...');
-      this.updateProgressBar(5);
+      // Show/hide elements based on detection state
+      const detectionProgress = document.getElementById('detection-progress');
+      const youtubeResults = document.getElementById('youtube-results');
       
-      // Ensure audio context is running before proceeding
-      if (AudioEngine.context && AudioEngine.context.state === 'suspended') {
-        AudioEngine.context.resume().then(() => {
-          this.establishWebSocketConnection(wsUrl, videoId);
-        }).catch(error => {
-          console.error('Failed to resume audio context:', error);
-          this.handleWebSocketError();
-        });
+      if (this.detection.isDetecting) {
+        if (detectionProgress) detectionProgress.style.display = 'block';
       } else {
-        this.establishWebSocketConnection(wsUrl, videoId);
+        if (detectionProgress) detectionProgress.style.display = 'none';
+        if (youtubeResults && this.chordSequence.length > 0) {
+          youtubeResults.style.display = 'block';
+        }
       }
-    },
-    
-    /**
-     * Establish WebSocket connection
-     * @param {string} wsUrl - WebSocket URL
-     * @param {string} videoId - YouTube video ID
-     */
-    establishWebSocketConnection(wsUrl, videoId) {
-      try {
-        this.socket = new WebSocket(wsUrl);
-        
-        this.socket.onopen = () => {
-          this.setDetectionStatus('Connection established. Sending detection request...');
-          this.updateProgressBar(10);
-          
-          // Send detection request
-          this.socket.send(JSON.stringify({
-            type: 'detection_request',
-            youtube_id: videoId,
-            url: `https://www.youtube.com/watch?v=${videoId}`
-          }));
-        };
-        
-        this.socket.onmessage = (event) => {
-          this.handleWebSocketMessage(event);
-        };
-        
-        this.socket.onerror = (error) => {
-          console.error('WebSocket error:', error);
-          this.handleWebSocketError();
-        };
-        
-        this.socket.onclose = () => {
-          console.log('WebSocket connection closed');
-          // Only show error if we were in the middle of detection
-          if (this.playback.isPlaying) {
-            this.handleWebSocketError();
-          }
-        };
-      } catch (error) {
-        console.error('Failed to create WebSocket connection:', error);
-        this.handleWebSocketError();
-      }
-    },
-    
-    /**
-     * Handle WebSocket errors
-     */
-    handleWebSocketError() {
-      this.setDetectionStatus('Error connecting to chord detection server');
-      document.getElementById('detection-progress').style.display = 'none';
-      UIManager.showFeedback('Failed to connect to chord detection service. Please try again later.', 'error');
       
-      // Fall back to local detection if WebSocket fails
-      this.simulateChordDetection(this.currentVideo.id);
+      // Update buttons
+      if (!this.detection.isDetecting) {
+        const detectButton = document.getElementById('detect-chords');
+        if (detectButton) {
+          detectButton.disabled = this.detection.isDetecting;
+        }
+      }
+    },
+    
+    /**
+     * Handle WebSocket messages
+     */
+    handleWebSocketMessage(event) {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('Received WebSocket message:', data); // Add for debugging
+        
+        switch (data.type) {
+          // Change this to match server's message type
+          case 'detection_status':  // Changed from 'status'
+            this.detection.status = data.status;  // Changed from data.message
+            this.detection.progress = data.progress;
+            this.updateDetectionUI();
+            break;
+            
+          case 'error':
+            UIManager.showFeedback(data.error, 'error');  // Changed from data.message
+            this.detection.isDetecting = false;
+            this.updateDetectionUI();
+            break;
+            
+          // The rest of your message handlers...
+          case 'metadata':
+            this.updateMetadata(data);
+            break;
+            
+          case 'chord_sequence':
+            console.log('Received chord sequence:', data.chords);
+            // Check the first chord's structure
+            if (data.chords && data.chords.length > 0) {
+                console.log('First chord:', data.chords[0]);
+                console.log('Last chord:', data.chords[data.chords.length - 1]);
+            }
+            this.chordSequence = data.chords;
+            this.updateChordTimeline();
+            break;
+            
+          case 'chord_progressions':  // Add handler for progression data
+            console.log('Received chord progressions:', data.progressions);
+            // You could display these progressions in the UI
+            break;
+            
+          case 'detection_complete':
+            this.detection.isDetecting = false;
+            this.detection.progress = 100;
+            this.detection.status = 'Complete';
+            this.updateDetectionUI();
+            
+            // Reset detect button
+            const detectButton = document.getElementById('detect-chords');
+            if (detectButton) {
+              detectButton.textContent = 'Detect Chords';
+              detectButton.onclick = () => this.startChordDetection();
+            }
+            break;
+        }
+        
+      } catch (error) {
+        console.error('Error handling WebSocket message:', error, event.data);
+      }
+    },
+    
+    /**
+     * Update song metadata UI
+     */
+    updateMetadata(data) {
+      const keyElement = document.getElementById('song-key');
+      if (keyElement) {
+        keyElement.textContent = `Key: ${data.key}`;
+      }
+      
+      const tempoElement = document.getElementById('song-tempo');
+      if (tempoElement) {
+        tempoElement.textContent = `Tempo: ${Math.round(data.tempo)} BPM`;
+      }
     },
     
     /**
@@ -307,206 +453,7 @@ const YouTubeChordModule = {
     getWebSocketUrl() {
       // Default to localhost:8080 for development
       // In production, this would be configured based on deployment environment
-      return 'ws://localhost:8080/chords';
-    },
-    
-    /**
-     * Handle WebSocket messages from the Python chord detection server
-     * @param {MessageEvent} event - WebSocket message event
-     */
-    handleWebSocketMessage(event) {
-      try {
-        const message = JSON.parse(event.data);
-        
-        switch (message.type) {
-          case 'detection_status':
-            this.setDetectionStatus(message.status);
-            this.updateProgressBar(message.progress || 0);
-            break;
-            
-          case 'metadata':
-            // Store song metadata (key, tempo, etc.)
-            this.songMetadata = message;
-            this.setDetectionStatus(`Detected key: ${message.key}`);
-            this.updateProgressBar(60);
-            break;
-            
-          case 'chord_sequence':
-            // Process and display detected chords
-            this.handleChordSequenceData(message.chords);
-            this.updateProgressBar(90);
-            break;
-            
-          case 'detection_complete':
-            // Hide progress and show results
-            document.getElementById('detection-progress').style.display = 'none';
-            document.getElementById('youtube-results').style.display = 'block';
-            this.updateProgressBar(100);
-            
-            // Show success message
-            UIManager.showFeedback('Chord detection completed successfully!', 'success');
-            break;
-            
-          case 'error':
-            document.getElementById('detection-progress').style.display = 'none';
-            this.setDetectionStatus(message.error || 'Error detecting chords');
-            UIManager.showFeedback(message.error || 'Error detecting chords', 'error');
-            break;
-            
-          case 'playback_event':
-            this.handlePlaybackEvent(message);
-            break;
-            
-          default:
-            console.log('Unknown message type:', message.type);
-        }
-      } catch (error) {
-        console.error('Error processing WebSocket message:', error);
-      }
-    },
-    
-    /**
-     * Simulate chord detection for testing without the Python backend
-     * @param {string} videoId - YouTube video ID
-     */
-    simulateChordDetection(videoId) {
-      this.setDetectionStatus('Simulating chord detection (demo mode)...');
-      this.updateProgressBar(10);
-      
-      // Simulate waiting for download
-      setTimeout(() => {
-        this.setDetectionStatus('Downloading audio...');
-        this.updateProgressBar(30);
-        
-        // Simulate audio analysis
-        setTimeout(() => {
-          this.setDetectionStatus('Analyzing audio features...');
-          this.updateProgressBar(60);
-          
-          // Simulate chord detection
-          setTimeout(() => {
-            this.setDetectionStatus('Identifying chords...');
-            this.updateProgressBar(80);
-            
-            // Generate sample chord data
-            const sampleChords = this.generateSampleChordData();
-            
-            // Process the sample chord data
-            this.handleChordSequenceData(sampleChords);
-            
-            // Hide progress and show results
-            document.getElementById('detection-progress').style.display = 'none';
-            document.getElementById('youtube-results').style.display = 'block';
-            this.updateProgressBar(100);
-            
-            // Show demo mode notice
-            UIManager.showFeedback('Demo mode: Using simulated chord data', 'info', 5000);
-          }, 1500);
-        }, 1500);
-      }, 1500);
-    },
-    
-    /**
-     * Generate sample chord data for testing
-     * @returns {Array} Sample chord sequence
-     */
-    generateSampleChordData() {
-      // C major chord progression: C - G - Am - F
-      return [
-        {
-          time: 0.0,
-          duration: 4.0,
-          notes: [60, 64, 67],
-          chord: "C:maj"
-        },
-        {
-          time: 4.0,
-          duration: 4.0,
-          notes: [67, 71, 74],
-          chord: "G:maj"
-        },
-        {
-          time: 8.0,
-          duration: 4.0,
-          notes: [69, 72, 76],
-          chord: "A:min"
-        },
-        {
-          time: 12.0,
-          duration: 4.0,
-          notes: [65, 69, 72],
-          chord: "F:maj"
-        },
-        // Repeat progression
-        {
-          time: 16.0,
-          duration: 4.0,
-          notes: [60, 64, 67],
-          chord: "C:maj"
-        },
-        {
-          time: 20.0,
-          duration: 4.0,
-          notes: [67, 71, 74],
-          chord: "G:maj"
-        },
-        {
-          time: 24.0,
-          duration: 4.0,
-          notes: [69, 72, 76],
-          chord: "A:min"
-        },
-        {
-          time: 28.0,
-          duration: 4.0,
-          notes: [65, 69, 72],
-          chord: "F:maj"
-        }
-      ];
-    },
-    
-    /**
-     * Handle detected chord sequence data
-     * @param {Array} chords - Chord sequence data
-     */
-    handleChordSequenceData(chords) {
-      // Store the chord sequence
-      this.chordSequence = chords;
-      
-      // Update the UI with the detected chords
-      this.updateChordTimeline();
-      
-      // Update status
-      const chordCount = chords.length;
-      this.setDetectionStatus(
-        `Detection complete! Found ${chordCount} chord${chordCount !== 1 ? 's' : ''}.`
-      );
-    },
-    
-    /**
-     * Handle playback events from the WebSocket server
-     * @param {Object} event - Playback event data
-     */
-    handlePlaybackEvent(event) {
-      switch (event.event) {
-        case 'playback_started':
-          // Update playback UI
-          this.playback.isPlaying = true;
-          this.playback.startTime = Date.now() - (event.time * 1000);
-          break;
-          
-        case 'chord_active':
-          // Highlight active chord
-          this.highlightActiveChord(event.chord_index);
-          // Play the chord
-          this.playChord(event.chord_index, true);
-          break;
-          
-        case 'playback_ended':
-          // End playback
-          this.stopPlayback();
-          break;
-      }
+      return 'ws://localhost:8080';
     },
     
     /**
@@ -569,52 +516,36 @@ const YouTubeChordModule = {
     },
     
     /**
-     * Set detection status message
-     * @param {string} message - Status message
-     */
-    setDetectionStatus(message) {
-      const statusElement = document.getElementById('detection-status');
-      if (statusElement) {
-        statusElement.textContent = message;
-      }
-      
-      const progressStatus = document.querySelector('.progress-status');
-      if (progressStatus) {
-        progressStatus.textContent = message;
-      }
-    },
-    
-    /**
-     * Update progress bar percentage
-     * @param {number} percent - Progress percentage (0-100)
-     */
-    updateProgressBar(percent) {
-      const progressBar = document.getElementById('progress-bar-fill');
-      if (progressBar) {
-        progressBar.style.width = `${percent}%`;
-      }
-    },
-    
-    /**
      * Toggle playback of chord progression
      */
     togglePlayback() {
       if (this.playback.isPlaying) {
         this.stopPlayback();
       } else {
-        this.startPlayback();
+        // Instead of directly starting playback, use a setTimeout to separate
+        // the click event from the actual playback start
+        setTimeout(() => {
+          this.startPlayback();
+        }, 100);
       }
     },
+    
     
     /**
      * Start playback of detected chord progression
      */
     startPlayback() {
+      // Prevent multiple starts
+      if (this.playback.isPlaying) {
+        console.log('Playback already in progress');
+        return;
+      }
+
       if (!this.chordSequence || this.chordSequence.length === 0) {
         UIManager.showFeedback('No chord progression to play', 'error');
         return;
       }
-      
+
       // Update button text
       const playButton = document.getElementById('play-detected-chords');
       if (playButton) {
@@ -623,60 +554,218 @@ const YouTubeChordModule = {
       
       // Set playback state
       this.playback.isPlaying = true;
-      this.playback.startTime = Date.now();
-      this.playback.currentChordIndex = -1;
+      this.playback.currentChordIndex = 0;
       
-      // Start playback loop
-      this.playbackLoop();
+      console.log('Starting chord progression playback with', this.chordSequence.length, 'chords');
+      
+      // Start playing the chord sequence
+      this.processChordSequence();
     },
-    
+
     /**
-     * Main playback loop
+     * Process the chord sequence one chord at a time
      */
-    playbackLoop() {
-      if (!this.playback.isPlaying) return;
-      
-      // Calculate current time in the sequence
-      const currentTime = (Date.now() - this.playback.startTime) / 1000;
-      
-      // Find the chord that should be playing at this time
-      let currentChordIndex = -1;
-      for (let i = 0; i < this.chordSequence.length; i++) {
-        const chord = this.chordSequence[i];
-        if (currentTime >= chord.time && currentTime < chord.time + chord.duration) {
-          currentChordIndex = i;
-          break;
-        }
+    processChordSequence() {
+      // Make sure we're still in playback mode
+      if (!this.playback.isPlaying) {
+        console.log('Playback was stopped');
+        return;
       }
       
-      // If a new chord should be playing
-      if (currentChordIndex !== -1 && currentChordIndex !== this.playback.currentChordIndex) {
-        this.playback.currentChordIndex = currentChordIndex;
-        this.highlightActiveChord(currentChordIndex);
-        this.playChord(currentChordIndex, true);
-      }
-      
-      // Check if we've reached the end of the sequence
-      const lastChord = this.chordSequence[this.chordSequence.length - 1];
-      if (lastChord && currentTime >= lastChord.time + lastChord.duration) {
-        // End of playback
+      // Check if we've reached the end
+      if (this.playback.currentChordIndex >= this.chordSequence.length) {
+        console.log('Reached end of chord sequence');
         this.stopPlayback();
         return;
       }
       
-      // Continue the loop
-      requestAnimationFrame(() => this.playbackLoop());
+      // Get the current chord
+      const chord = this.chordSequence[this.playback.currentChordIndex];
+      console.log(`Playing chord ${this.playback.currentChordIndex + 1}/${this.chordSequence.length}: ${chord.chord}`);
+      
+      // Highlight current chord in UI
+      this.highlightActiveChord(this.playback.currentChordIndex);
+      
+      // Skip no-chord segments
+      if (chord.chord === "N") {
+        this.playback.currentChordIndex++;
+        setTimeout(() => this.processChordSequence(), 0);
+        return;
+      }
+      
+      // Try to get the notes for this chord
+      let notes = [];
+      
+      try {
+        if (chord.notes && chord.notes.length) {
+          // Use pre-calculated notes
+          notes = chord.notes.map(midiNote => this.midiNoteToName(midiNote)).filter(Boolean);
+        } else {
+          // Parse chord name
+          let rootNote, chordType;
+          if (chord.chord.includes(':')) {
+            [rootNote, chordType] = chord.chord.split(':');
+          } else {
+            rootNote = chord.chord;
+            chordType = "maj";
+          }
+          
+          // Get chord pattern
+          const chordPattern = this.getChordPattern(chordType || 'maj');
+          
+          // Calculate notes
+          notes = PracticeModule.calculateNotesFromPattern(rootNote, chordPattern);
+        }
+      } catch (e) {
+        console.error('Error calculating chord notes:', e);
+      }
+      
+      if (!notes || notes.length === 0) {
+        console.warn(`No playable notes for chord: ${chord.chord}`);
+        this.playback.currentChordIndex++;
+        setTimeout(() => this.processChordSequence(), 0);
+        return;
+      }
+      
+      // Calculate duration (minimum 1 second)
+      const duration = Math.max(chord.duration * 1000, 1000);
+      console.log(`Playing chord ${chord.chord} with notes:`, notes, `duration: ${duration}ms`);
+      
+      try {
+        // Play the notes without using PianoModule.playChord which might have issues
+        notes.forEach(note => {
+          PianoModule.playNote(note);
+        });
+        
+        // Schedule stopping these notes and moving to the next chord
+        this.playback.nextChordTimeout = setTimeout(() => {
+          // Stop the current notes
+          notes.forEach(note => {
+            PianoModule.stopNote(note);
+          });
+          
+          // Move to the next chord
+          this.playback.currentChordIndex++;
+          
+          // Process the next chord
+          this.processChordSequence();
+        }, duration);
+      } catch (e) {
+        console.error('Error playing chord:', e);
+        this.playback.currentChordIndex++;
+        setTimeout(() => this.processChordSequence(), 0);
+      }
     },
-    
+
+    /**
+     * Play the next chord in the sequence and schedule the following one
+     */
+    playNextChord() {
+      if (!this.playback.isPlaying || 
+          this.playback.currentChordIndex >= this.chordSequence.length) {
+        this.stopPlayback();
+        return;
+      }
+      
+      // Get the current chord
+      const chord = this.chordSequence[this.playback.currentChordIndex];
+      
+      // Play the current chord
+      console.log(`Playing chord ${this.playback.currentChordIndex+1}/${this.chordSequence.length}: ${chord.chord}`);
+      this.highlightActiveChord(this.playback.currentChordIndex);
+      
+      // IMPORTANT: Make sure ignoreFocus is still true before playing each chord
+      if (!AppState.get('piano.ignoreFocus')) {
+        console.log('Restoring ignoreFocus flag to protect chord progression');
+        AppState.set('piano.ignoreFocus', true);
+      }
+      
+      // Play the chord
+      const notes = this.getChordNotes(chord);
+      if (notes.length === 0) {
+        console.warn('No playable notes for chord:', chord.chord);
+        // Skip to next chord
+        this.playback.currentChordIndex++;
+        setTimeout(() => this.playNextChord(), 0);
+        return;
+      }
+      
+      // Log the notes and duration
+      const duration = Math.max(chord.duration * 1000, 1000); // minimum 1 second
+      console.log(`Playing chord ${chord.chord} with notes:`, notes, `duration: ${duration}ms`);
+      
+      // Play chord directly using PianoModule with the ignoreFocus option
+      PianoModule.playChord(notes, {
+        duration: duration,
+        ignoreFocus: true // Always ignore focus events during chord progression
+      });
+      
+      // Schedule the next chord
+      this.playback.nextChordTimeout = setTimeout(() => {
+        if (this.playback.isPlaying) {
+          // Advance to next chord
+          this.playback.currentChordIndex++;
+          // Continue to next chord if available
+          this.playNextChord();
+        }
+      }, duration);
+    },
+
+    /**
+     * Get playable notes for a chord
+     * @param {Object} chord - Chord object
+     * @returns {string[]} Array of note names
+     */
+    getChordNotes(chord) {
+      // Skip "no chord" segments
+      if (chord.chord === "N") return [];
+      
+      // Use notes array if available, otherwise calculate from chord name
+      let notes = [];
+      if (chord.notes && chord.notes.length) {
+        // Convert MIDI note numbers to note names
+        notes = chord.notes.map(midiNote => {
+          return this.midiNoteToName(midiNote);
+        }).filter(Boolean); // Remove any null values
+      } else {
+        // Parse the chord name into components
+        let rootNote, chordType;
+        if (chord.chord.includes(':')) {
+          [rootNote, chordType] = chord.chord.split(':');
+        } else {
+          rootNote = chord.chord;
+          chordType = "maj";
+        }
+        
+        // Get chord pattern based on type
+        const chordPattern = this.getChordPattern(chordType || 'maj');
+        
+        // Calculate notes using PracticeModule's function
+        notes = PracticeModule.calculateNotesFromPattern(rootNote, chordPattern);
+      }
+      
+      return notes;
+    },
+
     /**
      * Stop playback
      */
     stopPlayback() {
+      console.log('Stopping chord progression playback');
+      
+      // Clear any pending timeouts
+      if (this.playback.nextChordTimeout) {
+        clearTimeout(this.playback.nextChordTimeout);
+        this.playback.nextChordTimeout = null;
+      }
+      
       // Update playback state
       this.playback.isPlaying = false;
       
       // Stop any currently playing notes
-      PianoModule.stopAllNotes();
+      if (PianoModule && typeof PianoModule.stopAllNotes === 'function') {
+        PianoModule.stopAllNotes();
+      }
       
       // Update button text
       const playButton = document.getElementById('play-detected-chords');
@@ -686,6 +775,8 @@ const YouTubeChordModule = {
       
       // Remove highlights
       this.highlightActiveChord(-1);
+      
+      console.log('Playback stopped');
     },
     
     /**
@@ -715,7 +806,13 @@ const YouTubeChordModule = {
         }).filter(Boolean); // Remove any null values
       } else {
         // Parse the chord name into components
-        const [rootNote, chordType] = chord.chord.split(':');
+        let rootNote, chordType;
+        if (chord.chord.includes(':')) {
+          [rootNote, chordType] = chord.chord.split(':');
+        } else {
+          rootNote = chord.chord;
+          chordType = "maj";
+        }
         
         // Get chord pattern based on type
         const chordPattern = this.getChordPattern(chordType || 'maj');
@@ -729,12 +826,16 @@ const YouTubeChordModule = {
         return;
       }
       
-      // Calculate chord duration (use 2 seconds for one-off plays)
-      const duration = isSequence ? chord.duration * 1000 : 2000;
+      // Calculate chord duration (use 1.5 seconds for one-off plays)
+      const duration = isSequence ? (chord.duration * 1000) : 1500;
+      
+      // Log the notes and duration
+      console.log(`Playing chord ${chord.chord} with notes:`, notes, `duration: ${duration}ms`);
       
       // Play the chord
       PianoModule.playChord(notes, {
-        duration: duration
+        duration: duration,
+        ignoreFocus: isSequence // Add flag to ignore focus events during sequence playback
       });
       
       // Highlight keys
