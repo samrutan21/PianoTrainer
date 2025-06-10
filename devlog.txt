@@ -17,3 +17,7 @@ Trying to get the practice logs to save across sessions. Last fix seems to have 
 5/4/2025 
 Fixed the practice mode. Now plays one at a time. Developing the chord progression detector. have a large dataset of songs with very detailed chord progressions in the train_chord_detector.py. Need to verify that the keys 
 and progressions are correct. Do this manually or by inputing the chords and progressions into other llms to verify. Then integrate it with the back end and the UI. 
+
+5/9/2025
+The Work flow of entering a youtube link, getting chords, and having them played back on the piano is set up. Now it needs to be Massively improved both in function and Aesthetic, but its there. 
+
