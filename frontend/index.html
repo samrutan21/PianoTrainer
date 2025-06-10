@@ -61,14 +61,16 @@
   <button class="youtube-panel-close" id="close-youtube-panel">&times;</button>
   <h2 class="panel-title">YouTube Chord Detection</h2>
   <div class="connection-status">
-    WebSocket: <span id="connection-status">Disconnected</span>
+    <span id="connection-status">WebSocket: Disconnected</span>
   </div>
   
   <div class="youtube-input-container">
     <div class="youtube-url-input">
-      <label for="youtube-url">YouTube URL:</label>
-      <input type="text" id="youtube-url" placeholder="https://www.youtube.com/watch?v=...">
-      <button id="detect-chords" class="control-button">Detect Chords</button>
+      <label for="youtube-url">YouTube URL</label>
+      <div class="input-group">
+        <input type="text" id="youtube-url" placeholder="Paste YouTube URL here (e.g., https://www.youtube.com/watch?v=...)">
+        <button id="detect-chords">Detect Chords</button>
+      </div>
     </div>
     
     <div class="youtube-preview" id="youtube-preview" style="display: none;">
@@ -78,7 +80,7 @@
   
   <div class="detection-progress" id="detection-progress" style="display: none;">
     <div class="loader"></div>
-    <span class="progress-status">Starting chord detection...</span>
+    <div class="progress-status">Starting chord detection...</div>
     <div class="progress-bar">
       <div class="progress-bar-fill" id="progress-bar-fill" style="width: 0%;"></div>
     </div>
@@ -86,15 +88,15 @@
   
   <div class="youtube-results" id="youtube-results" style="display: none;">
     <div class="results-header">
-      <h3>Detected Chords</h3>
-      <div class="song-metadata">
-        <span id="song-key">Key: Unknown</span>
-        <span id="song-tempo">Tempo: 120 BPM</span>
+      <div>
+        <h3>Detected Chords</h3>
+        <div class="song-metadata">
+          <span id="song-key">Key: Unknown</span>
+          <span id="song-tempo">Tempo: 120 BPM</span>
+        </div>
       </div>
       <div class="results-controls">
-        <button id="play-detected-chords" class="control-button">
-          <i class="icon-play"></i> Play Chord Progression
-        </button>
+        <button id="play-detected-chords" class="control-button">Play Chord Progression</button>
         <button id="save-detected-chords" class="control-button">Save to Song Builder</button>
       </div>
     </div>
