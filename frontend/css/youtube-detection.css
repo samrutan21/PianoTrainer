@@ -38,7 +38,7 @@
   border-radius: var(--border-radius-lg);
 }
 
-.panel-title {
+.youtube-panel .panel-title {
   font-size: 24px;
   font-weight: 600;
   margin-bottom: 25px;
@@ -46,12 +46,17 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  text-align: left;
 }
 
-.panel-title::before {
+.youtube-panel .panel-title::before {
   content: '🎬';
   font-size: 28px;
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+}
+
+.youtube-panel .panel-title::after {
+  display: none;
 }
 
 .youtube-panel-close {
