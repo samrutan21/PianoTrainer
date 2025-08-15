@@ -54,34 +54,171 @@
         
         // Define patterns directly if they're not in AppState
         const scalePatterns = {
+          // Major Scale Family
           'major': [0, 2, 4, 5, 7, 9, 11],
+          'ionian': [0, 2, 4, 5, 7, 9, 11],  // Same as major
+          
+          // Natural Minor and Modes
           'minor': [0, 2, 3, 5, 7, 8, 10],
+          'aeolian': [0, 2, 3, 5, 7, 8, 10],  // Same as natural minor
           'dorian': [0, 2, 3, 5, 7, 9, 10],
           'phrygian': [0, 1, 3, 5, 7, 8, 10],
           'lydian': [0, 2, 4, 6, 7, 9, 11],
           'mixolydian': [0, 2, 4, 5, 7, 9, 10],
           'locrian': [0, 1, 3, 5, 6, 8, 10],
+          
+          // Minor Scale Variations
           'harmonic_minor': [0, 2, 3, 5, 7, 8, 11],
           'melodic_minor': [0, 2, 3, 5, 7, 9, 11],
+          'hungarian_minor': [0, 2, 3, 6, 7, 8, 11],
+          'neapolitan_minor': [0, 1, 3, 5, 7, 8, 11],
+          
+          // Pentatonic Scales
           'pentatonic_major': [0, 2, 4, 7, 9],
           'pentatonic_minor': [0, 3, 5, 7, 10],
-          'blues': [0, 3, 5, 6, 7, 10]
+          'pentatonic_egyptian': [0, 2, 5, 7, 10],
+          'pentatonic_hirajoshi': [0, 1, 5, 7, 8],
+          'pentatonic_in_sen': [0, 1, 5, 7, 10],
+          
+          // Blues and Jazz Scales
+          'blues': [0, 3, 5, 6, 7, 10],
+          'blues_major': [0, 2, 3, 4, 7, 9],
+          'bebop_major': [0, 2, 4, 5, 7, 8, 9, 11],
+          'bebop_dominant': [0, 2, 4, 5, 7, 9, 10, 11],
+          'bebop_minor': [0, 2, 3, 5, 7, 8, 9, 10],
+          
+          // Exotic and World Scales
+          'chromatic': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+          'whole_tone': [0, 2, 4, 6, 8, 10],
+          'diminished_whole_half': [0, 2, 3, 5, 6, 8, 9, 11],
+          'diminished_half_whole': [0, 1, 3, 4, 6, 7, 9, 10],
+          'augmented': [0, 3, 4, 7, 8, 11],
+          
+          // Middle Eastern Scales
+          'phrygian_dominant': [0, 1, 4, 5, 7, 8, 10],
+          'double_harmonic': [0, 1, 4, 5, 7, 8, 11],
+          'hijaz': [0, 1, 4, 5, 7, 8, 11],
+          'maqam_hijaz': [0, 1, 4, 5, 7, 8, 10],
+          
+          // Eastern Scales
+          'japanese_in_sen': [0, 1, 5, 7, 10],
+          'japanese_hirajoshi': [0, 2, 3, 7, 8],
+          'japanese_kumoi': [0, 2, 3, 7, 9],
+          'chinese': [0, 4, 6, 7, 11],
+          'mongolian': [0, 2, 4, 7, 9],
+          
+          // Indian Ragas (simplified)
+          'raga_bhairav': [0, 1, 4, 5, 7, 8, 11],
+          'raga_yaman': [0, 2, 4, 6, 7, 9, 11],
+          'raga_kafi': [0, 2, 3, 5, 7, 9, 10],
+          
+          // Synthetic Scales
+          'altered': [0, 1, 3, 4, 6, 8, 10],
+          'super_locrian': [0, 1, 3, 4, 6, 8, 10],  // Same as altered
+          'lydian_dominant': [0, 2, 4, 6, 7, 9, 10],
+          'half_diminished': [0, 2, 3, 5, 6, 8, 10],
+          
+          // Modes of Harmonic Minor
+          'harmonic_minor_2': [0, 1, 3, 4, 6, 8, 9],  // Locrian #6
+          'harmonic_minor_3': [0, 2, 3, 5, 7, 8, 10],  // Ionian #5
+          'harmonic_minor_4': [0, 1, 3, 5, 6, 8, 9],   // Dorian #4
+          'harmonic_minor_5': [0, 2, 4, 5, 7, 8, 10],  // Phrygian dominant
+          'harmonic_minor_6': [0, 2, 3, 5, 6, 8, 9],   // Lydian #2
+          'harmonic_minor_7': [0, 1, 3, 4, 6, 7, 9],   // Super locrian diminished
+          
+          // Modes of Melodic Minor
+          'melodic_minor_2': [0, 1, 3, 4, 6, 8, 10],  // Dorian b2
+          'melodic_minor_3': [0, 2, 3, 5, 7, 9, 10],  // Lydian augmented
+          'melodic_minor_4': [0, 1, 3, 5, 7, 8, 10],  // Lydian dominant
+          'melodic_minor_5': [0, 2, 4, 6, 7, 9, 10],  // Mixolydian b6
+          'melodic_minor_6': [0, 2, 4, 5, 7, 8, 10],  // Locrian #2
+          'melodic_minor_7': [0, 2, 3, 5, 6, 8, 9]    // Altered scale
         };
         
         const chordPatterns = {
+          // Basic Triads
           'maj': [0, 4, 7],
           'min': [0, 3, 7],
+          'dim': [0, 3, 6],
+          'aug': [0, 4, 8],
+          
+          // Suspended Chords
+          'sus2': [0, 2, 7],
+          'sus4': [0, 5, 7],
+          
+          // Seventh Chords
           '7': [0, 4, 7, 10],
           'maj7': [0, 4, 7, 11],
           'min7': [0, 3, 7, 10],
-          'dim': [0, 3, 6],
+          'min_maj7': [0, 3, 7, 11],
           'dim7': [0, 3, 6, 9],
           'half_dim7': [0, 3, 6, 10],
-          'aug': [0, 4, 8],
-          'sus2': [0, 2, 7],
-          'sus4': [0, 5, 7],
+          'aug7': [0, 4, 8, 10],
+          'aug_maj7': [0, 4, 8, 11],
+          
+          // Extended Chords (9ths)
+          '9': [0, 4, 7, 10, 14],
           'maj9': [0, 4, 7, 11, 14],
-          'min9': [0, 3, 7, 10, 14]
+          'min9': [0, 3, 7, 10, 14],
+          'min_maj9': [0, 3, 7, 11, 14],
+          'add9': [0, 4, 7, 14],
+          'min_add9': [0, 3, 7, 14],
+          
+          // Extended Chords (11ths)
+          '11': [0, 4, 7, 10, 14, 17],
+          'maj11': [0, 4, 7, 11, 14, 17],
+          'min11': [0, 3, 7, 10, 14, 17],
+          'add11': [0, 4, 7, 17],
+          'min_add11': [0, 3, 7, 17],
+          
+          // Extended Chords (13ths)
+          '13': [0, 4, 7, 10, 14, 17, 21],
+          'maj13': [0, 4, 7, 11, 14, 17, 21],
+          'min13': [0, 3, 7, 10, 14, 17, 21],
+          'add13': [0, 4, 7, 21],
+          '6': [0, 4, 7, 9],
+          'min6': [0, 3, 7, 9],
+          
+          // Altered Chords
+          '7b5': [0, 4, 6, 10],
+          '7#5': [0, 4, 8, 10],
+          '7b9': [0, 4, 7, 10, 13],
+          '7#9': [0, 4, 7, 10, 15],
+          '7#11': [0, 4, 7, 10, 18],
+          '7b13': [0, 4, 7, 10, 20],
+          'alt': [0, 4, 6, 10, 13, 15], // Altered dominant (b5, #9)
+          
+          // Jazz/Advanced Chords
+          'maj7#11': [0, 4, 7, 11, 18],
+          'min_maj7#11': [0, 3, 7, 11, 18],
+          'maj7b5': [0, 4, 6, 11],
+          'maj9#11': [0, 4, 7, 11, 14, 18],
+          'min6_9': [0, 3, 7, 9, 14],
+          '6_9': [0, 4, 7, 9, 14],
+          
+          // Quartal/Quintal Chords
+          'quartal': [0, 5, 10],
+          'quintal': [0, 7, 14],
+          
+          // Special/Modal Chords
+          'power': [0, 7],  // Power chord (1-5)
+          'power_octave': [0, 7, 12],  // Power chord with octave
+          'maj_no3': [0, 7],  // Root and fifth only
+          'min_no3': [0, 7],  // Same as above (no third to define major/minor)
+          
+          // Additional Suspended Variations
+          'sus2_7': [0, 2, 7, 10],
+          'sus4_7': [0, 5, 7, 10],
+          'sus2_maj7': [0, 2, 7, 11],
+          'sus4_maj7': [0, 5, 7, 11],
+          
+          // Augmented variations
+          'aug_add9': [0, 4, 8, 14],
+          'aug_maj7_add9': [0, 4, 8, 11, 14],
+          
+          // Diminished variations
+          'dim_add9': [0, 3, 6, 14],
+          'dim_maj7': [0, 3, 6, 11]
         };
         
         // Create patterns in AppState if it doesn't exist
@@ -1538,14 +1675,18 @@
       const baseOctave = parseInt(baseNoteWithOctave.match(/[0-9]+/)[0]);
       
       // Get the semitone value of the root note (C = 0, C# = 1, etc.)
-      const noteValues = {'C': 0, 'C#': 1, 'D': 2, 'D#': 3, 'E': 4, 'F': 5, 'F#': 6, 'G': 7, 'G#': 8, 'A': 9, 'A#': 10, 'B': 11};
+      // Include both sharps and flats with their enharmonic equivalents
+      const noteValues = {
+        'C': 0, 'C#': 1, 'Db': 1, 'D': 2, 'D#': 3, 'Eb': 3, 'E': 4, 
+        'F': 5, 'F#': 6, 'Gb': 6, 'G': 7, 'G#': 8, 'Ab': 8, 'A': 9, 'A#': 10, 'Bb': 10, 'B': 11
+      };
       const rootValue = noteValues[baseName];
       
-      // Convert semitone values to actual note names
-      const valueToNote = {};
-      for (const [name, value] of Object.entries(noteValues)) {
-        valueToNote[value] = name;
-      }
+      // Convert semitone values to actual note names (prefer sharps for display consistency)
+      const valueToNote = {
+        0: 'C', 1: 'C#', 2: 'D', 3: 'D#', 4: 'E', 5: 'F',
+        6: 'F#', 7: 'G', 8: 'G#', 9: 'A', 10: 'A#', 11: 'B'
+      };
       
       // For A and B roots, we need special handling
       const isAorB = (baseName === 'A' || baseName === 'B');
@@ -1672,10 +1813,72 @@
             chordSelect.appendChild(option);
           }
         } else {
+          // Create a mapping for better display names
+          const chordDisplayNames = {
+            'maj': 'Major',
+            'min': 'Minor',
+            'dim': 'Diminished',
+            'aug': 'Augmented',
+            'sus2': 'Suspended 2nd',
+            'sus4': 'Suspended 4th',
+            '7': 'Dominant 7th',
+            'maj7': 'Major 7th',
+            'min7': 'Minor 7th',
+            'min_maj7': 'Minor Major 7th',
+            'dim7': 'Diminished 7th',
+            'half_dim7': 'Half Diminished 7th',
+            'aug7': 'Augmented 7th',
+            'aug_maj7': 'Augmented Major 7th',
+            '9': 'Dominant 9th',
+            'maj9': 'Major 9th',
+            'min9': 'Minor 9th',
+            'min_maj9': 'Minor Major 9th',
+            'add9': 'Add 9th',
+            'min_add9': 'Minor Add 9th',
+            '11': 'Dominant 11th',
+            'maj11': 'Major 11th',
+            'min11': 'Minor 11th',
+            'add11': 'Add 11th',
+            'min_add11': 'Minor Add 11th',
+            '13': 'Dominant 13th',
+            'maj13': 'Major 13th',
+            'min13': 'Minor 13th',
+            'add13': 'Add 13th',
+            '6': 'Major 6th',
+            'min6': 'Minor 6th',
+            '7b5': '7th Flat 5',
+            '7#5': '7th Sharp 5',
+            '7b9': '7th Flat 9',
+            '7#9': '7th Sharp 9',
+            '7#11': '7th Sharp 11',
+            '7b13': '7th Flat 13',
+            'alt': 'Altered Dominant',
+            'maj7#11': 'Major 7th Sharp 11',
+            'min_maj7#11': 'Minor Major 7th Sharp 11',
+            'maj7b5': 'Major 7th Flat 5',
+            'maj9#11': 'Major 9th Sharp 11',
+            'min6_9': 'Minor 6/9',
+            '6_9': 'Major 6/9',
+            'quartal': 'Quartal',
+            'quintal': 'Quintal',
+            'power': 'Power Chord',
+            'power_octave': 'Power Chord w/Octave',
+            'maj_no3': 'Major (no 3rd)',
+            'min_no3': 'Minor (no 3rd)',
+            'sus2_7': 'Sus2 7th',
+            'sus4_7': 'Sus4 7th',
+            'sus2_maj7': 'Sus2 Major 7th',
+            'sus4_maj7': 'Sus4 Major 7th',
+            'aug_add9': 'Augmented Add 9',
+            'aug_maj7_add9': 'Augmented Major 7th Add 9',
+            'dim_add9': 'Diminished Add 9',
+            'dim_maj7': 'Diminished Major 7th'
+          };
+          
           for (let chord in chordPatterns) {
             let option = document.createElement('option');
             option.value = chord;
-            option.textContent = chord;
+            option.textContent = chordDisplayNames[chord] || chord.replace(/_/g, ' ');
             chordSelect.appendChild(option);
           }
         }

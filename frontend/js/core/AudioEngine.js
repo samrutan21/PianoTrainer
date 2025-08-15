@@ -20,13 +20,13 @@ const AudioEngine = {
     
     // Frequency mapping (consolidated from existing code)
     noteFrequencies: {
-      'A3': 220.00, 'A#3': 233.08, 'B3': 247.94,
-      'C4': 261.63, 'C#4': 277.18, 'D4': 293.66, 'D#4': 311.13, 'E4': 329.63, 
-      'F4': 349.23, 'F#4': 369.99, 'G4': 392.00, 'G#4': 415.30,
-      'A4': 440.00, 'A#4': 466.16, 'B4': 493.88,
-      'C5': 523.25, 'C#5': 554.37, 'D5': 587.33, 'D#5': 622.25, 'E5': 659.25, 
-      'F5': 698.46, 'F#5': 739.99, 'G5': 783.99, 'G#5': 830.61,
-      'A5': 880.00, 'A#5': 932.33, 'B5': 987.77
+      'A3': 220.00, 'A#3': 233.08, 'Bb3': 233.08, 'B3': 247.94,
+      'C4': 261.63, 'C#4': 277.18, 'Db4': 277.18, 'D4': 293.66, 'D#4': 311.13, 'Eb4': 311.13, 'E4': 329.63, 
+      'F4': 349.23, 'F#4': 369.99, 'Gb4': 369.99, 'G4': 392.00, 'G#4': 415.30, 'Ab4': 415.30,
+      'A4': 440.00, 'A#4': 466.16, 'Bb4': 466.16, 'B4': 493.88,
+      'C5': 523.25, 'C#5': 554.37, 'Db5': 554.37, 'D5': 587.33, 'D#5': 622.25, 'Eb5': 622.25, 'E5': 659.25, 
+      'F5': 698.46, 'F#5': 739.99, 'Gb5': 739.99, 'G5': 783.99, 'G#5': 830.61, 'Ab5': 830.61,
+      'A5': 880.00, 'A#5': 932.33, 'Bb5': 932.33, 'B5': 987.77
     },
     
     // Wave types for oscillator fallback
@@ -555,15 +555,18 @@ const AudioEngine = {
       
       if (!noteFreqKeys || noteFreqKeys.length === 0) {
         console.warn('AudioEngine: No note frequencies found, returning standard set');
-        // Return a standard set of notes
-        return ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        // Return comprehensive set including both sharps and flats
+        return ['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B'];
       }
       
       // Extract unique note names without octaves
       const uniqueNotes = [...new Set(noteFreqKeys.map(note => note.replace(/[0-9]/g, '')))];
       
-      // Sort in standard order
-      const noteOrder = { 'C': 0, 'C#': 1, 'D': 2, 'D#': 3, 'E': 4, 'F': 5, 'F#': 6, 'G': 7, 'G#': 8, 'A': 9, 'A#': 10, 'B': 11 };
+      // Sort in standard order with both sharps and flats
+      const noteOrder = { 
+        'C': 0, 'C#': 1, 'Db': 1, 'D': 2, 'D#': 3, 'Eb': 3, 'E': 4, 
+        'F': 5, 'F#': 6, 'Gb': 6, 'G': 7, 'G#': 8, 'Ab': 8, 'A': 9, 'A#': 10, 'Bb': 10, 'B': 11 
+      };
       
       return uniqueNotes.sort((a, b) => noteOrder[a] - noteOrder[b]);
     },
@@ -574,10 +577,11 @@ const AudioEngine = {
      * @returns {number} Lowest octave available
      */
     findLowestOctaveForNote(noteName) {
-      // Map of notes to their lowest octave on this specific keyboard
+      // Map of notes to their lowest octave on this specific keyboard (including flats)
       const lowestOctaveMap = {
-        'A': 3, 'A#': 3, 'B': 3,
-        'C': 4, 'C#': 4, 'D': 4, 'D#': 4, 'E': 4, 'F': 4, 'F#': 4, 'G': 4, 'G#': 4
+        'A': 3, 'A#': 3, 'Bb': 3, 'B': 3,
+        'C': 4, 'C#': 4, 'Db': 4, 'D': 4, 'D#': 4, 'Eb': 4, 'E': 4, 
+        'F': 4, 'F#': 4, 'Gb': 4, 'G': 4, 'G#': 4, 'Ab': 4
       };
       
       // Return the lowest octave for this note or default to 4
