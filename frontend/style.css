@@ -766,38 +766,25 @@ body {
   overflow-y: auto;
 }
 
-/* Special styling for chord and scale selects to handle many options */
+/* Force chord and scale selects to be scrollable list boxes */
 #chord-select,
 #scale-select {
-  /* Increase visible options count */
-  size: 12;
-  /* Allow scrolling when there are more than 12 options */
-  overflow-y: auto;
-  max-height: 300px;
+  /* Convert to scrollable list box */
+  size: 15 !important;
+  height: 300px !important;
+  overflow-y: scroll !important;
+  appearance: listbox !important;
+  -webkit-appearance: listbox !important;
+  -moz-appearance: listbox !important;
+  
   /* Better spacing for readability */
   line-height: 1.4;
-}
-
-/* Override browser default for better UX */
-#chord-select option,
-#scale-select option {
-  padding: 8px 12px;
-  line-height: 1.4;
-}
-
-/* Ensure dropdowns work well on different browsers */
-@supports (-webkit-appearance: none) {
-  #chord-select,
-  #scale-select {
-    -webkit-appearance: listbox;
-  }
-}
-
-@supports (-moz-appearance: none) {
-  #chord-select,
-  #scale-select {
-    -moz-appearance: listbox;
-  }
+  
+  /* Ensure it displays as a list, not dropdown */
+  background-color: #fff;
+  border: 2px solid #007acc;
+  border-radius: 8px;
+  padding: 8px;
 }
 
 /* Mobile responsive improvements for dropdowns */
@@ -805,21 +792,14 @@ body {
   #chord-select,
   #scale-select,
   #root-note-select {
-    font-size: 18px; /* Larger font for mobile */
-    padding: 12px;
-    min-height: 50px; /* Touch-friendly height */
+    font-size: 16px; /* Readable font for mobile */
+    padding: 8px;
   }
   
   #chord-select,
   #scale-select {
-    size: 8; /* Fewer visible options on mobile */
-    max-height: 250px;
-  }
-  
-  #chord-select option,
-  #scale-select option {
-    padding: 12px; /* More touch-friendly padding */
-    min-height: 44px; /* iOS recommended touch target */
+    height: 200px !important; /* Smaller height on mobile */
+    size: 10 !important; /* Fewer visible options on mobile */
   }
 }
 
