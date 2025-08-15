@@ -1750,8 +1750,8 @@
       console.log('PracticeModule: Populating select elements');
       
       // Directly access the patterns from AppState for debugging
-      const scalePatterns = AppState.patterns?.scales;
-      const chordPatterns = AppState.patterns?.chords;
+      const scalePatterns = AppState.get('patterns.scales');
+      const chordPatterns = AppState.get('patterns.chords');
       
       console.log('Direct scale patterns check:', scalePatterns);
       console.log('Direct chord patterns check:', chordPatterns);
