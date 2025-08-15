@@ -761,6 +761,66 @@ body {
   appearance: auto;
   -webkit-appearance: menulist;
   margin-bottom: 10px;
+  /* Enable scrolling for long dropdown lists */
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* Special styling for chord and scale selects to handle many options */
+#chord-select,
+#scale-select {
+  /* Increase visible options count */
+  size: 12;
+  /* Allow scrolling when there are more than 12 options */
+  overflow-y: auto;
+  max-height: 300px;
+  /* Better spacing for readability */
+  line-height: 1.4;
+}
+
+/* Override browser default for better UX */
+#chord-select option,
+#scale-select option {
+  padding: 8px 12px;
+  line-height: 1.4;
+}
+
+/* Ensure dropdowns work well on different browsers */
+@supports (-webkit-appearance: none) {
+  #chord-select,
+  #scale-select {
+    -webkit-appearance: listbox;
+  }
+}
+
+@supports (-moz-appearance: none) {
+  #chord-select,
+  #scale-select {
+    -moz-appearance: listbox;
+  }
+}
+
+/* Mobile responsive improvements for dropdowns */
+@media (max-width: 768px) {
+  #chord-select,
+  #scale-select,
+  #root-note-select {
+    font-size: 18px; /* Larger font for mobile */
+    padding: 12px;
+    min-height: 50px; /* Touch-friendly height */
+  }
+  
+  #chord-select,
+  #scale-select {
+    size: 8; /* Fewer visible options on mobile */
+    max-height: 250px;
+  }
+  
+  #chord-select option,
+  #scale-select option {
+    padding: 12px; /* More touch-friendly padding */
+    min-height: 44px; /* iOS recommended touch target */
+  }
 }
 
 /* Ensure proper spacing for duration controls */
