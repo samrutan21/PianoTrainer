@@ -1755,6 +1755,8 @@
       
       console.log('Direct scale patterns check:', scalePatterns);
       console.log('Direct chord patterns check:', chordPatterns);
+      console.log('Chord patterns count:', chordPatterns ? Object.keys(chordPatterns).length : 0);
+      console.log('Scale patterns count:', scalePatterns ? Object.keys(scalePatterns).length : 0);
       
       // Set up the scale selector
       const scaleSelect = document.getElementById('scale-select');
@@ -1796,7 +1798,9 @@
         chordSelect.innerHTML = '<option value="">Select a Chord</option>';
         
         if (!chordPatterns || Object.keys(chordPatterns).length === 0) {
-          console.error('No chord patterns found in AppState');
+          console.error('No chord patterns found in AppState - using fallback chords');
+          console.log('chordPatterns value:', chordPatterns);
+          console.log('AppState.patterns:', AppState.patterns);
           
           // Fallback to a basic set of chords
           const fallbackChords = {
@@ -1813,6 +1817,7 @@
             chordSelect.appendChild(option);
           }
         } else {
+          console.log('Successfully found chord patterns - loading all', Object.keys(chordPatterns).length, 'chord types');
           // Create a mapping for better display names
           const chordDisplayNames = {
             'maj': 'Major',

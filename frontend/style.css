@@ -766,25 +766,18 @@ body {
   overflow-y: auto;
 }
 
-/* Force chord and scale selects to be scrollable list boxes */
+/* Make chord and scale selects scrollable */
 #chord-select,
 #scale-select {
-  /* Convert to scrollable list box */
-  size: 15 !important;
-  height: 300px !important;
-  overflow-y: scroll !important;
-  appearance: listbox !important;
-  -webkit-appearance: listbox !important;
-  -moz-appearance: listbox !important;
+  /* Show multiple options at once */
+  size: 12;
+  height: auto;
+  max-height: 300px;
+  overflow-y: auto;
   
   /* Better spacing for readability */
-  line-height: 1.4;
-  
-  /* Ensure it displays as a list, not dropdown */
-  background-color: #fff;
-  border: 2px solid #007acc;
-  border-radius: 8px;
-  padding: 8px;
+  line-height: 1.3;
+  padding: 4px;
 }
 
 /* Mobile responsive improvements for dropdowns */
